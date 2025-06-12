@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: tsuuwa
+      POSTGRES_PASSWORD: tsuuwa123
+      POSTGRES_DB: tsuuwa
+    volumes:
+      - db_store:/var/lib/postgresql/data
+
+volumes:
+  db_store:
