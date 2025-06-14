@@ -1,6 +1,7 @@
 {
   "name": "tsuuwa",
   "packageManager": "yarn@1.22.22",
+  "type": "module",
   "scripts": {
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
