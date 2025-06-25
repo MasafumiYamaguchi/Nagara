@@ -7,7 +7,7 @@
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npx jest"
+    "test": "NODE_ENV=test npx jest"
   },
   "dependencies": {
     "expo": "^53.0.11",
@@ -44,6 +44,7 @@
     "jest": "^30.0.0",
     "jest-environment-jsdom": "^30.0.0",
     "metro-react-native-babel-preset": "^0.77.0",
+    "nativewind": "^4.1.23",
     "prettier": "^3.5.3",
     "react-test-renderer": "^19.1.0",
     "ts-jest": "^29.4.0",
