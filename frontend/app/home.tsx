@@ -3,20 +3,14 @@ import React, { useEffect } from "react";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./navigation/types";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Index">;
+type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export default function Index({ route, navigation }: Props) {
   
   useEffect(() => {
-    console.log("Index screen mounted");
-
-    const timer = setTimeout(() => {
-      navigation.navigate("Login");
-    }, 1000);
-
+    console.log("Home screen mounted");
     return () => {
-      clearTimeout(timer);
-      console.log("Index screen unmounted");
+      console.log("Home screen unmounted");
     };
   }, [route, navigation]);
 
@@ -28,7 +22,7 @@ export default function Index({ route, navigation }: Props) {
         alignItems: "center",
       }}
     >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
+      <Text>This is a home screen.</Text>
     </View>
   );
 }
