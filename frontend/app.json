@@ -11,20 +11,23 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "bundleIdentifier": "com.yourcompany.tsuuwa",
       "supportsTablet": true,
-      "jsEngine": "jsc"
+      "bundleIdentifier": "com.anonymous.tsuuwa"
     },
     "android": {
-      "package": "com.yourcompany.tsuuwa",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
-      }
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.anonymous.tsuuwa"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "scheme": "tsuuwa"
   }
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { NativeBaseProvider } from "native-base";
 import LoginScreen from "./login";
 import IndexScreen from "./index";
 import HomeScreen from "./home";
@@ -11,7 +11,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
+    <NativeBaseProvider>
       <NavigationContainer>
         <Stack.Navigator
           initialRouteName="Index"
@@ -24,6 +24,6 @@ export default function RootLayout() {
           <Stack.Screen name="Home" component={HomeScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-    </SafeAreaProvider>
+    </NativeBaseProvider>
   );
 }

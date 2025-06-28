@@ -1,12 +1,11 @@
-import { Text, View } from "react-native";
 import React, { useEffect } from "react";
+import { Center, VStack, Heading, Button, Text } from "native-base";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Index">;
 
 export default function Index({ route, navigation }: Props) {
-  
   useEffect(() => {
     console.log("Index screen mounted");
 
@@ -21,14 +20,34 @@ export default function Index({ route, navigation }: Props) {
   }, [route, navigation]);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-    </View>
+    <Center flex={1} px="3">
+      <VStack space={4} alignItems="center">
+        <Heading size="xl" color="coolGray.800">
+          Tsuuwa
+        </Heading>
+        <Text fontSize="md" color="coolGray.600" textAlign="center">
+          音声通話アプリへようこそ
+        </Text>
+
+        <VStack space={3} mt="8" w="80%">
+          <Button
+            colorScheme="indigo"
+            size="lg"
+            onPress={() => navigation.navigate("Login")}
+          >
+            ログイン
+          </Button>
+
+          <Button
+            variant="outline"
+            colorScheme="indigo"
+            size="lg"
+            onPress={() => navigation.navigate("Home")}
+          >
+            ホームへ
+          </Button>
+        </VStack>
+      </VStack>
+    </Center>
   );
 }

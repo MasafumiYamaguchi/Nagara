@@ -1,58 +1,102 @@
+import React, { useState } from 'react';
+import {
+  Box,
+  VStack,
+  FormControl,
+  Input,
+  Button,
+  Heading,
+  Text,
+  HStack,
+  Center,
+  useToast,
+  Pressable
+} from 'native-base';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./navigation/types";
-import React, { useEffect } from "react";
-import { Text, View, Button, TextInput } from "react-native";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
-export default function LoginScreen({ navigation, route }: Props) {
+export default function LoginScreen({ navigation }: Props) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const toast = useToast();
 
-  const [username, setUsername] = React.useState("");
-  const [password, setPassword] = React.useState("");
-
-  useEffect(() => {
-    console.log("Login screen mounted");
-    return () => {
-      console.log("Login screen unmounted");
-    };
-  }, []);
+  const handleLogin = () => {
+    if (!email || !password) {
+      alert("メールアドレスとパスワードを入力してください");
+      return;
+    }
+    
+    // ログイン成功時はホーム画面に遷移
+    toast.show({
+      title: "ログイン成功",
+      description: "ホーム画面に移動します",
+      variant: "solid",
+    });
+    
+    setTimeout(() => {
+      navigation.navigate("Home");
+    }, 1000);
+  };
 
   return (
-    <View className="flex-1 justify-center items-center px-4 bg-gray-50">
-      <View className="w-full max-w-sm">
-        <Text className="text-2xl font-bold text-gray-800 mb-8 text-center">
-          ログイン
-        </Text>
-        <TextInput 
-          className="h-12 border border-gray-300 rounded-lg px-4 text-gray-700 mb-4 bg-white"
-          placeholder="ユーザー名"
-          placeholderTextColor="#9CA3AF"
-          onChangeText={setUsername}
-        />
-        <TextInput 
-          className="h-12 border border-gray-300 rounded-lg px-4 text-gray-700 mb-4 bg-white"
-          placeholder="パスワード"
-          placeholderTextColor="#9CA3AF"
-          secureTextEntry={true}
-          onChangeText={setPassword}
-        />
-        <View className="mt-2">
-          <View className="bg-blue-600 rounded-lg w-1/3 mx-auto">
-            <Button
-              color="#FFFFFF"
-              title="ログイン"
-              onPress={() => {
-                if (!username || !password) {
-                  alert("ユーザー名とパスワードを入力してください");
-                  return;
-                }
-                console.log("Login button pressed");
-                navigation.navigate("Home");
-              }}
+    <Center flex={1} px="3">
+      <Box safeArea p="2" py="8" w="90%" maxW="290">
+        <VStack space={3} mt="5">
+          <Heading size="lg" fontWeight="600" color="coolGray.800">
+            ログイン
+          </Heading>
+          <Text fontSize="md" color="coolGray.600">
+            アカウントにサインインしてください
+          </Text>
+
+          <FormControl>
+            <FormControl.Label>メールアドレス</FormControl.Label>
+            <Input
+              value={email}
+              onChangeText={setEmail}
+              placeholder="メールアドレスを入力"
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
-          </View>
-        </View>
-      </View>
-    </View>
+          </FormControl>
+
+          <FormControl>
+            <FormControl.Label>パスワード</FormControl.Label>
+            <Input
+              type="password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="パスワードを入力"
+            />
+          </FormControl>
+
+          <Button mt="2" colorScheme="indigo" onPress={handleLogin}>
+            ログイン
+          </Button>
+
+          <HStack mt="6" justifyContent="center">
+            <Text fontSize="sm" color="coolGray.600">
+              アカウントをお持ちでない方は{" "}
+            </Text>
+            <Pressable onPress={() => console.log("新規登録画面へ")}>
+              <Text fontSize="sm" color="indigo.500" fontWeight="medium">
+                新規登録
+              </Text>
+            </Pressable>
+          </HStack>
+
+          <Button 
+            variant="ghost" 
+            colorScheme="coolGray"
+            mt="4"
+            onPress={() => navigation.goBack()}
+          >
+            戻る
+          </Button>
+        </VStack>
+      </Box>
+    </Center>
   );
 }
