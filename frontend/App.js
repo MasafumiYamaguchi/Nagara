@@ -1,5 +1,6 @@
-import { registerRootComponent } from 'expo';
-import RootLayout from './app/_layout';
+import { registerRootComponent } from "expo";
+
+import RootLayout from "./app/_layout";
 
 export default function App() {
   return <RootLayout />;

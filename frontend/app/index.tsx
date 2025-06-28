@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { Center, VStack, Heading, Button, Text } from "native-base";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Center, VStack, Heading, Button, Text } from "native-base";
+import React, { useEffect } from "react";
+
 import { RootStackParamList } from "./navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Index">;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   Box,
   Text,
@@ -12,7 +12,8 @@ import {
   Center,
   Heading,
 } from "native-base";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import React, { useEffect, useState } from "react";
+
 import { RootStackParamList } from "./navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
@@ -22,18 +23,44 @@ export default function Index({ route, navigation }: Props) {
 
   // サンプルの部屋データ
   const rooms = [
-    { id: 1, name: "フロントエンド勉強会", participants: 12, description: "React/React Nativeについて話し合いましょう" },
-    { id: 2, name: "バックエンド開発", participants: 8, description: "Node.js、Python、データベース設計など" },
-    { id: 3, name: "デザイン相談室", participants: 15, description: "UI/UXデザインのフィードバックと相談" },
-    { id: 4, name: "プロジェクト管理", participants: 6, description: "アジャイル開発とプロジェクト運営" },
-    { id: 5, name: "フリートーク", participants: 20, description: "技術やキャリアについて自由に話しましょう" },
+    {
+      id: 1,
+      name: "フロントエンド勉強会",
+      participants: 12,
+      description: "React/React Nativeについて話し合いましょう",
+    },
+    {
+      id: 2,
+      name: "バックエンド開発",
+      participants: 8,
+      description: "Node.js、Python、データベース設計など",
+    },
+    {
+      id: 3,
+      name: "デザイン相談室",
+      participants: 15,
+      description: "UI/UXデザインのフィードバックと相談",
+    },
+    {
+      id: 4,
+      name: "プロジェクト管理",
+      participants: 6,
+      description: "アジャイル開発とプロジェクト運営",
+    },
+    {
+      id: 5,
+      name: "フリートーク",
+      participants: 20,
+      description: "技術やキャリアについて自由に話しましょう",
+    },
   ];
 
-  const filteredRooms = rooms.filter(room =>
-    room.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    room.description.toLowerCase().includes(searchText.toLowerCase())
+  const filteredRooms = rooms.filter(
+    (room) =>
+      room.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      room.description.toLowerCase().includes(searchText.toLowerCase()),
   );
-  
+
   useEffect(() => {
     console.log("Home screen mounted");
     return () => {
@@ -68,7 +95,7 @@ export default function Index({ route, navigation }: Props) {
             placeholderTextColor="gray.400"
             _focus={{
               borderColor: "blue.500",
-              bg: "white"
+              bg: "white",
             }}
           />
         </VStack>
@@ -78,13 +105,13 @@ export default function Index({ route, navigation }: Props) {
           <Text fontSize="lg" fontWeight="semibold" color="gray.800">
             参加可能な部屋 ({filteredRooms.length})
           </Text>
-          
+
           {filteredRooms.map((room) => (
             <Pressable
               key={room.id}
               onPress={() => handleRoomPress(room.id)}
               _pressed={{
-                opacity: 0.8
+                opacity: 0.8,
               }}
             >
               <Box
@@ -95,11 +122,15 @@ export default function Index({ route, navigation }: Props) {
                 borderColor="gray.300"
                 shadow={2}
               >
-                <HStack justifyContent="space-between" alignItems="flex-start" mb={4}>
-                  <Text 
-                    fontSize="lg" 
-                    fontWeight="bold" 
-                    color="gray.900" 
+                <HStack
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  mb={4}
+                >
+                  <Text
+                    fontSize="lg"
+                    fontWeight="bold"
+                    color="gray.900"
                     flex={1}
                     mr={3}
                     numberOfLines={2}
@@ -125,10 +156,10 @@ export default function Index({ route, navigation }: Props) {
                     </HStack>
                   </Badge>
                 </HStack>
-                
-                <Text 
-                  color="gray.700" 
-                  fontSize="sm" 
+
+                <Text
+                  color="gray.700"
+                  fontSize="sm"
                   lineHeight={30}
                   mt={2}
                   mb={2}
@@ -138,22 +169,18 @@ export default function Index({ route, navigation }: Props) {
                 >
                   {room.description}
                 </Text>
-                
+
                 <Divider my={4} />
-                
+
                 <Center pt={1}>
-                  <Text 
-                    color="blue.600" 
-                    fontSize="sm" 
-                    fontWeight="medium"
-                  >
+                  <Text color="blue.600" fontSize="sm" fontWeight="medium">
                     参加する →
                   </Text>
                 </Center>
               </Box>
             </Pressable>
           ))}
-          
+
           {filteredRooms.length === 0 && (
             <Box
               bg="white"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   Box,
   VStack,
@@ -10,16 +10,17 @@ import {
   HStack,
   Center,
   useToast,
-  Pressable
-} from 'native-base';
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+  Pressable,
+} from "native-base";
+import React, { useState } from "react";
+
 import { RootStackParamList } from "./navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
 export default function LoginScreen({ navigation }: Props) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const toast = useToast();
 
   const handleLogin = () => {
@@ -27,14 +28,14 @@ export default function LoginScreen({ navigation }: Props) {
       alert("メールアドレスとパスワードを入力してください");
       return;
     }
-    
+
     // ログイン成功時はホーム画面に遷移
     toast.show({
       title: "ログイン成功",
       description: "ホーム画面に移動します",
       variant: "solid",
     });
-    
+
     setTimeout(() => {
       navigation.navigate("Home");
     }, 1000);
@@ -87,8 +88,8 @@ export default function LoginScreen({ navigation }: Props) {
             </Pressable>
           </HStack>
 
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             colorScheme="coolGray"
             mt="4"
             onPress={() => navigation.goBack()}

@@ -1,10 +1,11 @@
-import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NativeBaseProvider } from "native-base";
-import LoginScreen from "./login";
-import IndexScreen from "./index";
+import React from "react";
+
 import HomeScreen from "./home";
+import IndexScreen from "./index";
+import LoginScreen from "./login";
 import { RootStackParamList } from "./navigation/types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
