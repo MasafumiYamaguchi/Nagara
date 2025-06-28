@@ -72,6 +72,7 @@ export default [
       'no-unused-vars': 'off', // @typescript-eslint/no-unused-varsを使用
       '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-var-requires': 'off', // CommonJSを許可
+      '@typescript-eslint/no-require-imports': 'off', // CommonJSのrequire()を許可
       'no-useless-escape': 'warn',
       'no-empty': 'warn',
       'no-fallthrough': 'warn',
@@ -103,6 +104,7 @@ export default [
       'node_modules/.yarn-integrity',
       'yarn-error.log',
       '.pnp.*',
+      'frontend/',
     ],
   },
 ];
