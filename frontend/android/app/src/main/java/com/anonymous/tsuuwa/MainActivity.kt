@@ -1,4 +1,4 @@
-package com.tsuuwa
+package com.anonymous.tsuuwa
 
 import android.os.Build
 import android.os.Bundle

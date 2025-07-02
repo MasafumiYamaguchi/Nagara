@@ -15,30 +15,40 @@ import {
 import React, { useState } from "react";
 
 import { RootStackParamList } from "./navigation/types";
+import { signIn } from "../src/services/authService"; // 変更
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // 追加
   const toast = useToast();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
-      alert("メールアドレスとパスワードを入力してください");
+      toast.show({ description: "メールアドレスとパスワードを入力してください" });
       return;
     }
-
-    // ログイン成功時はホーム画面に遷移
-    toast.show({
-      title: "ログイン成功",
-      description: "ホーム画面に移動します",
-      variant: "solid",
-    });
-
-    setTimeout(() => {
-      navigation.navigate("Home");
-    }, 1000);
+    setIsLoading(true);
+    try {
+      await signIn(email, password);
+      // ログイン成功時の画面遷移は onAuthStateChanged で処理されるため、
+      // ここでの明示的な navigation.navigate は不要になる場合があります。
+      // 必要に応じて成功時の処理を追加してください。
+      toast.show({
+        title: "ログイン成功",
+        variant: "solid",
+      });
+    } catch (error: any) {
+      toast.show({
+        description: error.message || "ログインに失敗しました",
+        variant: "subtle",
+        colorScheme: "danger",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,7 +83,12 @@ export default function LoginScreen({ navigation }: Props) {
             />
           </FormControl>
 
-          <Button mt="2" colorScheme="indigo" onPress={handleLogin}>
+          <Button
+            mt="2"
+            colorScheme="indigo"
+            onPress={handleLogin}
+            isLoading={isLoading} // 追加
+          >
             ログイン
           </Button>
 
@@ -81,7 +96,7 @@ export default function LoginScreen({ navigation }: Props) {
             <Text fontSize="sm" color="coolGray.600">
               アカウントをお持ちでない方は{" "}
             </Text>
-            <Pressable onPress={() => console.log("新規登録画面へ")}>
+            <Pressable onPress={() => navigation.navigate("Register")}>
               <Text fontSize="sm" color="indigo.500" fontWeight="medium">
                 新規登録
               </Text>

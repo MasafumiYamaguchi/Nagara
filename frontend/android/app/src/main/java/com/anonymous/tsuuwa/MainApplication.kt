@@ -1,4 +1,4 @@
-package com.tsuuwa
+package com.anonymous.tsuuwa
 
 import android.app.Application
 import android.content.res.Configuration
