@@ -10,7 +10,13 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL=${DATABASE_SSL}
     command: npm run dev
+    env_file:
+      - ./.env
+    depends_on:
+      - db
   db:
     image: postgres:latest
     ports:
