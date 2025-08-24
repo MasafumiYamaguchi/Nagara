@@ -3,10 +3,11 @@ version: '3.8'
 services:
   backend:
     build: .
+    working_dir: /app/backend
     ports:
       - "3000:3000"
     volumes:
-      - .:/app
+      - .:/app/backend
       - /app/node_modules
     environment:
       - NODE_ENV=development
