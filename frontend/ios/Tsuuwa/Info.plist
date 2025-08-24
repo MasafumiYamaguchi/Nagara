@@ -37,9 +37,19 @@
           <string>com.googleusercontent.apps.890979401267-9hfchfep2kvkcp2mf5jhvcj24matq5ea</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>com.anonymous.tsuuwa</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>YOUR_REVERSED_CLIENT_ID</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>GIDClientID</key>
+    <string>YOUR_CLIENT_ID_FROM_GOOGLESERVICE_INFO_PLIST</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSAppTransportSecurity</key>

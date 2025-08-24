@@ -42,7 +42,7 @@ export default function RegisterScreen({ navigation }: Props) {
     });
 
     setTimeout(() => {
-      navigation.navigate("Home");
+      navigation.navigate("Main");
     }, 1000);
   };
 

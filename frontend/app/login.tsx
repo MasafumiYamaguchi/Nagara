@@ -11,18 +11,22 @@ import {
   Center,
   useToast,
   Pressable,
+  Icon,
+  Divider,
 } from "native-base";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { MaterialIcons } from '@expo/vector-icons';
 
 import { RootStackParamList } from "./navigation/types";
-import { signIn } from "../src/services/authService"; // 変更
+import { signIn, signInWithGoogle } from "../src/services/authService"; // 変更
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
 export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // 追加
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false); // Google認証ローディング用
   const toast = useToast();
 
   const handleLogin = async () => {
@@ -48,6 +52,26 @@ export default function LoginScreen({ navigation }: Props) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Googleログイン処理
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      toast.show({
+        title: "Googleログイン成功",
+        variant: "solid",
+      });
+    } catch (error: any) {
+      toast.show({
+        description: error.message || "Googleログインに失敗しました",
+        variant: "subtle",
+        colorScheme: "danger",
+      });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -87,9 +111,26 @@ export default function LoginScreen({ navigation }: Props) {
             mt="2"
             colorScheme="indigo"
             onPress={handleLogin}
-            isLoading={isLoading} // 追加
+            isLoading={isLoading}
           >
             ログイン
+          </Button>
+          
+          {/* Google ログインボタンの追加 */}
+          <HStack my="3" alignItems="center">
+            <Divider flex={1} />
+            <Text mx="2" fontSize="xs" color="muted.400">または</Text>
+            <Divider flex={1} />
+          </HStack>
+          
+          <Button
+            leftIcon={<Icon as={MaterialIcons} name="login" size="sm" />}
+            colorScheme="red"
+            onPress={handleGoogleLogin}
+            isLoading={isGoogleLoading}
+            _text={{ color: "white" }}
+          >
+            Googleでログイン
           </Button>
 
           <HStack mt="6" justifyContent="center">

@@ -43,6 +43,12 @@
             "useFrameworks": "static"
           }
         }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": ["./assets/fonts/Inter.ttf"]
+        }
       ]
     ]
   }

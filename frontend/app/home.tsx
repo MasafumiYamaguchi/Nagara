@@ -1,4 +1,4 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Text,
@@ -12,13 +12,19 @@ import {
   Center,
   Heading,
 } from "native-base";
-import React, { useEffect, useState } from "react";
 
-import { RootStackParamList } from "./navigation/types";
+// Bottom Tab用の型定義をインポート
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
-type Props = NativeStackScreenProps<RootStackParamList, "Home">;
+type TabParamList = {
+  ホーム: undefined;
+  プロフィール: undefined;
+  設定: undefined;
+};
 
-export default function Index({ route, navigation }: Props) {
+type Props = BottomTabScreenProps<TabParamList, 'ホーム'>;
+
+const Home = ({ route, navigation }: Props) => {
   const [searchText, setSearchText] = useState("");
 
   // サンプルの部屋データ
@@ -201,4 +207,6 @@ export default function Index({ route, navigation }: Props) {
       </ScrollView>
     </Box>
   );
-}
+};
+
+export default Home;
