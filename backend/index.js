@@ -11,13 +11,11 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// PostgreSQL 接続プール
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
-// 起動時に接続確認
 (async () => {
   try {
     const { rows } = await pool.query('SELECT NOW() AS now');
@@ -31,7 +29,6 @@ app.get('/', (req, res) => {
   res.json({ message: 'Tsuuwa Backend API is running!' });
 });
 
-// DB ヘルスチェック
 app.get('/db-health', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT 1 AS ok');
