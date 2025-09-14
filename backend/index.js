@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
+const { PrismaClient } = require('@prisma/client');
+const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
 
 dotenv.config();
 
@@ -15,6 +17,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
+const prisma = new PrismaClient();
 
 (async () => {
   try {
@@ -38,6 +41,53 @@ app.get('/db-health', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.post('/rooms', async (req, res) => {
+  try {
+    const { name, description, nop } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Room name is required' });
+    }
+    const newRoom = await prisma.room.create({
+      data: { name, description: description || '', nop },
+    });
+    res.status(201).json(newRoom);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/rooms/:roomId/token', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { uid } = req.query.uid || Math.floor(Math.random() * 100000);
+    const role = RtcRole.PUBLISHER;
+    const expireTime = 3600;
+
+    const appID = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+    if (!appID || !appCertificate) {
+      return res.status(500).json({ error: 'Agora credentials are not set' });
+    }
+
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expireTime;
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appID,
+      appCertificate,
+      roomId,
+      uid,
+      role,
+      privilegeExpiredTs
+    );
+
+    res.json({ token, uid});
+  } catch (e) {
+    res.status(500).json({ error: e.message});
+  }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });

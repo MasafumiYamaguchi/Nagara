@@ -12,6 +12,7 @@ import LoginScreen from "./login";
 import { RootStackParamList } from "./navigation/types";
 import RegisterScreen from "./register";
 import BottomTabNavigator from "./tab/bottomtabnavigator"; // BottomTabNavigatorをインポート
+import RoomScreen from "./room";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -63,6 +64,7 @@ export default function RootLayout() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Main" component={BottomTabNavigator} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Room" component={RoomScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </NativeBaseProvider>
