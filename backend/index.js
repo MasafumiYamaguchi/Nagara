@@ -56,10 +56,23 @@ app.post('/rooms', async (req, res) => {
   }
 });
 
+// 追加: 部屋一覧を返すエンドポイント
+app.get('/rooms', async (req, res) => {
+  try {
+    const rooms = await prisma.room.findMany({
+      orderBy: { id: 'desc' },
+    });
+    res.json(rooms);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/rooms/:roomId/token', async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { uid } = req.query.uid || Math.floor(Math.random() * 100000);
+    // 修正: uid の取り出し方（未指定なら乱数）
+    const uid = Number(req.query.uid) || Math.floor(Math.random() * 100000);
     const role = RtcRole.PUBLISHER;
     const expireTime = 3600;
 

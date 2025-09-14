@@ -6,3 +6,5 @@ build/
 web-build/
 npm-debug.log
 .env
+
+backend
