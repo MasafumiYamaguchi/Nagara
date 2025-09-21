@@ -18,13 +18,13 @@ type TabParamList = {
 
 type Props = BottomTabScreenProps<TabParamList, 'ホーム'>;
 
-// 実行環境に応じてベースURLを切り替え
+// 実行環境に応じてベースURLを切り替え（全て Lightsail のIPに統一）
 const API_BASE_URL =
   Platform.select({
-    ios: "http://localhost:3000",     // iOSシミュレータ
-    android: "http://10.0.2.2:3000",  // Androidエミュレータ
-    default: "http://192.168.0.10:3000", // 実機の場合は開発PCのLAN IPに置き換え
-  }) ?? "http://192.168.0.10:3000";
+    ios: "http://57.181.137.17:3000",
+    android: "http://57.181.137.17:3000",
+    default: "http://57.181.137.17:3000",
+  }) ?? "http://57.181.137.17:3000";
 
 type Room = { id: number; name: string; description: string; nop: number };
 
@@ -42,12 +42,17 @@ const Home = ({ route, navigation }: Props) => {
     setLoading(true);
     setError(null);
     try {
+      console.log("API_BASE_URL:", API_BASE_URL);
       const res = await fetch(`${API_BASE_URL}/rooms`);
-      if (!res.ok) throw new Error(`Failed to load rooms: ${res.status}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`GET /rooms failed: ${res.status} ${res.statusText} ${text}`);
+      }
       const data: Room[] = await res.json();
       setRooms(data);
     } catch (e: any) {
-      setError(e.message ?? "ロードに失敗しました");
+      console.error(e);
+      setError(e?.message ?? "ロードに失敗しました");
     } finally {
       setLoading(false);
     }
@@ -86,13 +91,14 @@ const Home = ({ route, navigation }: Props) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: roomName.trim(), description: roomDesc.trim(), nop: 1 }),
       });
-      if (!res.ok) throw new Error(`作成に失敗しました: ${res.status}`);
-      await fetchRooms(); // 作成後に一覧をリロード
-      // 必要なら作成した部屋へ遷移
-      // const created = await res.json();
-      // navigation.navigate("Room", { roomId: created.id, name: created.name, nop: created.nop });
-    } catch (e) {
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`POST /rooms failed: ${res.status} ${res.statusText} ${text}`);
+      }
+      await fetchRooms();
+    } catch (e: any) {
       console.error(e);
+      setError(e?.message ?? "作成に失敗しました");
     } finally {
       handleCancelCreate();
     }
