@@ -21,10 +21,10 @@ type Props = BottomTabScreenProps<TabParamList, 'ホーム'>;
 // 実行環境に応じてベースURLを切り替え（全て Lightsail のIPに統一）
 const API_BASE_URL =
   Platform.select({
-    ios: "http://57.181.137.17:3000",
-    android: "http://57.181.137.17:3000",
-    default: "http://57.181.137.17:3000",
-  }) ?? "http://57.181.137.17:3000";
+    ios: "https://api.tsuuwa.com",
+    android: "https://api.tsuuwa.com",
+    default: "https://api.tsuuwa.com",
+  }) ?? "https://api.tsuuwa.com";
 
 type Room = { id: number; name: string; description: string; nop: number };
 

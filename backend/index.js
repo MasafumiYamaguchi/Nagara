@@ -56,6 +56,23 @@ app.post('/rooms', async (req, res) => {
   }
 });
 
+// 部屋の削除エンドポイント
+app.delete('/rooms/:roomId', async (req, res) => {
+  try {
+    const id = Number(req.params.roomId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid room ID' });
+    }
+    const result = await prisma.room.deleteMany({ where: { id } });
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    res.json({ deleted: result.count }); 
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // 追加: 部屋一覧を返すエンドポイント
 app.get('/rooms', async (req, res) => {
   try {
