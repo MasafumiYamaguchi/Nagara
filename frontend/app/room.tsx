@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Box,
   VStack,
@@ -48,6 +48,56 @@ export default function RoomScreen({ navigation, route }: Props) {
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const headerBg = useColorModeValue('white', 'gray.800');
+
+  // Agora認証関連
+  const [agoraToken, setAgoraToken] = useState<string | null>(null);
+  const [agoraUid, setAgoraUid] = useState<number | null>(null);
+  const [tokenLoading, setTokenLoading] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const tokenExpireAtRef = React.useRef<number | null>(null);
+
+  const fetchToken = useCallback(async () => {
+    setTokenLoading(true);
+    setTokenError(null);
+    try {
+      const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch token: ${res.status} ${res.statusText}`);
+      }
+      const data = await res.json();
+      setAgoraToken(data.token);
+      setAgoraUid(data.uid);
+      tokenExpireAtRef.current = Date.now() + (data.expireAt || 3600) * 1000; // ミリ秒に変換
+
+      // Agoraエンジンの処理をここに追加
+
+    } catch (e: any) {
+      setTokenError(e?.message || 'トークンの取得に失敗しました');
+      setAgoraToken(null);
+    } finally {
+      setTokenLoading(false);
+    }
+
+  }, [roomId]);
+
+  // 初回取得
+  React.useEffect(() => {
+    fetchToken();
+  }, [fetchToken]);
+
+  // トークンの有効期限チェックと更新
+  React.useEffect(() => {
+    const id = setTimeout(() => {
+      if ( tokenExpireAtRef.current) {
+        const remain = tokenExpireAtRef.current - Date.now();
+        if ( remain < 60_000 ) { // 1分未満なら更新
+          fetchToken();
+        }
+      }
+    }, 60_000); // 1分ごとにチェック
+
+    return () => clearInterval(id);
+  }, [fetchToken]);
 
   const handleMuteToggle = () => {
     setIsMuted(!isMuted);

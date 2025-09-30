@@ -3,7 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
 const { PrismaClient } = require('@prisma/client');
-const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const { buildRtcToken } = require('./rtc/agoraToken');
 
 dotenv.config();
 
@@ -88,31 +88,17 @@ app.get('/rooms', async (req, res) => {
 app.get('/rooms/:roomId/token', async (req, res) => {
   try {
     const { roomId } = req.params;
-    // 修正: uid の取り出し方（未指定なら乱数）
     const uid = Number(req.query.uid) || Math.floor(Math.random() * 100000);
-    const role = RtcRole.PUBLISHER;
-    const expireTime = 3600;
+    const roleparam = req.query.role === 'audience' ? 'audience' : 'publisher';
 
-    const appID = process.env.AGORA_APP_ID;
-    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
-
-    if (!appID || !appCertificate) {
-      return res.status(500).json({ error: 'Agora credentials are not set' });
-    }
-
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    const privilegeExpiredTs = currentTimestamp + expireTime;
-
-    const token = RtcTokenBuilder.buildTokenWithUid(
-      appID,
-      appCertificate,
-      roomId,
+    const { token, expireAt, expireSeconds } = buildRtcToken({
+      channelName: roomId,
       uid,
-      role,
-      privilegeExpiredTs
-    );
+      role: roleparam,
+      expireSeconds: 3600,
+    });
 
-    res.json({ token, uid});
+    res.json({ token, uid , role: roleparam, expireAt, expireSeconds });
   } catch (e) {
     res.status(500).json({ error: e.message});
   }

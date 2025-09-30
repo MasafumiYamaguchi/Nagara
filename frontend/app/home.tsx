@@ -4,7 +4,7 @@ import {
   Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView
 } from "native-base";
 import { AntDesign } from "@expo/vector-icons";
-import { Platform } from "react-native";
+import { Platform, RefreshControl } from "react-native";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -104,9 +104,16 @@ const Home = ({ route, navigation }: Props) => {
     }
   };
 
+  // リフレッシュの処理
+  const onRefresh = () => {
+    fetchRooms();
+  };
+
   return (
     <Box flex={1} bg="gray.50" safeArea>
-      <ScrollView flex={1} px={4} py={6} pb={20}>
+      <ScrollView flex={1} px={4} py={6} pb={20} refreshControl={
+        <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+      }>
         {/* 検索欄 */}
         <VStack space={4} mb={6}>
           <Heading size="lg" color="gray.800">
