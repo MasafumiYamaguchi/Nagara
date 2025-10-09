@@ -5,6 +5,7 @@ import {
 } from "native-base";
 import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl } from "react-native";
+import Constants from 'expo-constants';
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -20,11 +21,7 @@ type Props = BottomTabScreenProps<TabParamList, 'ホーム'>;
 
 // 実行環境に応じてベースURLを切り替え（全て Lightsail のIPに統一）
 const API_BASE_URL =
-  Platform.select({
-    ios: "https://api.tsuuwa.com",
-    android: "https://api.tsuuwa.com",
-    default: "https://api.tsuuwa.com",
-  }) ?? "https://api.tsuuwa.com";
+  (Constants.expoConfig?.extra as any)?.apiBaseUrl || 'https://api.tsuuwa.com';
 
 type Room = { id: number; name: string; description: string; nop: number };
 

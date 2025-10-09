@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
+import { Platform, PermissionsAndroid } from 'react-native';
 import {
   Box,
   VStack,
@@ -15,6 +16,7 @@ import {
   FlatList,
 } from 'native-base';
 import { Ionicons } from '@expo/vector-icons';
+import constants from 'expo-constants';
 
 // ↓ 変更: RtcEngine ではなく createAgoraRtcEngine / IRtcEngine を使用
 import {
@@ -26,20 +28,19 @@ import {
 
 import { RootStackParamList } from "./navigation/types";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import dontenv from 'dotenv';
+
 
 interface Participant {
   id: string;
   name: string;
   isMuted: boolean;
   avatarUrl?: string;
+  speakingVolume?: number; 
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, "Room">;
 
-dontenv.config();
-
-const AGORA_APP_ID = process.env.AGORA_APP_ID;
+const AGORA_APP_ID = constants.expoConfig?.extra?.agoraAppId;
 
 export default function RoomScreen({ navigation, route }: Props) {
   const { roomId, name } = route.params;
@@ -66,21 +67,40 @@ export default function RoomScreen({ navigation, route }: Props) {
   const engineRef = useRef<IRtcEngine | null>(null);
   const joinedRef = useRef(false);
 
+  const requestMicPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  };
+
   // Agora 初期化
   const initAgora = useCallback(() => {
     if (engineRef.current || !AGORA_APP_ID) return;
+
+    const ok = requestMicPermission();
+    if (!ok) {
+      setTokenError('マイクの使用許可が必要です');
+      return;
+    }
+
     const engine = createAgoraRtcEngine();
     engine.initialize({
       appId: AGORA_APP_ID,
       channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
     });
     engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+    engine.enableAudio();
+    engine.setDefaultAudioRouteToSpeakerphone(true);
+    engine.enableAudioVolumeIndication(500, 3, true); // 500msごとに音量インジケーションを有効化
 
     // イベント登録
     engine.registerEventHandler({
       onJoinChannelSuccess: () => {
         joinedRef.current = true;
-        // 参加者 (自分) が既に追加済みならスキップ
       },
       onUserJoined: (uid) => {
         setParticipants(prev => {
@@ -97,11 +117,38 @@ export default function RoomScreen({ navigation, route }: Props) {
             p.id === String(uid) ? { ...p, isMuted: !!muted } : p
           )
         );
+      },
+      onAudioVolumeIndication: (_speakers, speakers) => {
+        setParticipants(prev =>
+          prev.map(p => {
+            const s = speakers.find(sp => String(sp.uid) === p.id || (sp.uid === 0 && p.id === 'local'));
+            return s ? { ...p, speakingVolume: s.volume } : { ...p, speakingVolume: 0 };
+          })
+        );
+      },
+      onTokenPrivilegeWillExpire: () => {
+        // トークン更新
+        fetchNewTokenAndRenew();
       }
     });
 
     engineRef.current = engine;
-  }, []);
+  }, [AGORA_APP_ID]);
+
+  const fetchNewTokenAndRenew = useCallback(async () => {
+    try {
+      const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
+      if (!res.ok) throw new Error('renew token fail');
+      const data = await res.json();
+      tokenExpireAtRef.current = Date.now() + ((data.expireAtSeconds ?? 3600) * 1000);
+      setAgoraToken(data.token);
+      if (engineRef.current) {
+        engineRef.current.renewToken(data.token);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }, [roomId]);
 
   // トークン取得
   const fetchToken = useCallback(async () => {
@@ -133,12 +180,10 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   }, [roomId, initAgora]);
 
-  // 初回
   useEffect(() => {
     fetchToken();
   }, [fetchToken]);
 
-  // トークン更新チェック
   useEffect(() => {
     const id = setInterval(() => {
       if (tokenExpireAtRef.current) {
@@ -149,7 +194,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       }
     }, 60_000);
     return () => clearInterval(id);
-  }, [fetchToken]);
+  }, [ fetchToken]);
 
   // クリーンアップ
   useEffect(() => {
@@ -191,9 +236,16 @@ export default function RoomScreen({ navigation, route }: Props) {
   };
 
   const handleLeaveRoom = () => {
-    onClose();
     cleanupAndLeave();
+    onClose();
     navigation.goBack();
+    setParticipants([]);
+  };
+
+  // ★ 入室ボタン経由でトークン取得 & join
+  const joinRoom = () => {
+    if (tokenLoading) return;
+    fetchToken();
   };
 
   return (
@@ -203,7 +255,7 @@ export default function RoomScreen({ navigation, route }: Props) {
           <Text fontSize="xl" fontWeight="bold">
             通話ルーム
           </Text>
-          <Badge colorScheme="blue" rounded="full">
+          <Badge bg="primary.500" _text={{ color: 'white' }} rounded="full">
             {participants.length}名参加中
           </Badge>
         </HStack>
@@ -212,15 +264,17 @@ export default function RoomScreen({ navigation, route }: Props) {
       </Box>
 
       <Box flex={1} p={4}>
-        <FlatList
-          data={participants}
+          <FlatList
+            data={participants}
             keyExtractor={(item) => item.id}
             numColumns={2}
             showsVerticalScrollIndicator={false}
             renderItem={({ item: participant, index }) => (
               <Box
                 flex={1}
-                bg={cardBg}
+                bg={(participant.speakingVolume ?? 0) > 50 ? 'blue.600' : cardBg || 'transparent'}
+                borderWidth={(participant.speakingVolume ?? 0) > 50 ? 2 : 0}
+                borderColor="blue.400"
                 rounded="xl"
                 shadow={3}
                 overflow="hidden"
@@ -250,7 +304,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                     </Text>
                     <HStack space={1}>
                       {participant.isMuted && (
-                        <Badge colorScheme="red" variant="subtle" size="sm">
+                        <Badge bg="red.500" _text={{ color: 'white' }} variant="solid" size="sm">
                           ミュート
                         </Badge>
                       )}
@@ -259,7 +313,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                 </Box>
               </Box>
             )}
-        />
+          />
       </Box>
 
       <Box bg={headerBg} p={4} shadow={2}>
@@ -267,29 +321,29 @@ export default function RoomScreen({ navigation, route }: Props) {
           <VStack alignItems="center">
             <IconButton
               size="lg"
-              colorScheme={isMuted ? 'red' : 'green'}
-              variant="solid"
+              bg={isMuted ? 'red.500' : 'green.500'}
+              _pressed={{ bg: isMuted ? 'red.600' : 'green.600' }}
               rounded="full"
               icon={<Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="white" />}
               onPress={handleMuteToggle}
             />
-            <Text fontSize="xs" mt={1}>
-              {isMuted ? 'ミュート解除' : 'ミュート'}
-            </Text>
+              <Text fontSize="xs" mt={1}>
+                {isMuted ? 'ミュート解除' : 'ミュート'}
+              </Text>
           </VStack>
 
           <VStack alignItems="center">
             <IconButton
               size="lg"
-              colorScheme="red"
-              variant="solid"
+              bg="red.500"
+              _pressed={{ bg: 'red.600' }}
               rounded="full"
               icon={<Ionicons name="call" size={24} color="white" />}
               onPress={onOpen}
             />
-            <Text fontSize="xs" mt={1}>
-              退出
-            </Text>
+              <Text fontSize="xs" mt={1}>
+                退出
+              </Text>
           </VStack>
         </HStack>
       </Box>
@@ -306,7 +360,7 @@ export default function RoomScreen({ navigation, route }: Props) {
               <Button variant="unstyled" colorScheme="coolGray" onPress={onClose} ref={cancelRef}>
                 キャンセル
               </Button>
-              <Button colorScheme="red" onPress={handleLeaveRoom}>
+              <Button bg="red.500" _pressed={{ bg: 'red.600' }} onPress={handleLeaveRoom}>
                 終了
               </Button>
             </Button.Group>

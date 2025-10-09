@@ -43,7 +43,7 @@ export default function Index({ route, navigation }: Props) {
             variant="outline"
             colorScheme="indigo"
             size="lg"
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.navigate("Main")}
           >
             ホームへ
           </Button>
