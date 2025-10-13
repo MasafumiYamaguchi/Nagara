@@ -24,12 +24,14 @@ import {
   IRtcEngine,
   ChannelProfileType,
   ClientRoleType,
+  LocalUserAudio,
+  RemoteUserAudio,
 } from 'react-native-agora';
 
 import { RootStackParamList } from "./navigation/types";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-
+// 参加者の情報
 interface Participant {
   id: string;
   name: string;
@@ -67,6 +69,7 @@ export default function RoomScreen({ navigation, route }: Props) {
   const engineRef = useRef<IRtcEngine | null>(null);
   const joinedRef = useRef(false);
 
+  // マイクのパーミッションをリクエスト
   const requestMicPermission = async () => {
     if (Platform.OS === 'android') {
       const granted = await PermissionsAndroid.request(
@@ -78,15 +81,16 @@ export default function RoomScreen({ navigation, route }: Props) {
   };
 
   // Agora 初期化
-  const initAgora = useCallback(() => {
+  const initAgora = useCallback(async () => {
     if (engineRef.current || !AGORA_APP_ID) return;
 
-    const ok = requestMicPermission();
+    const ok = await requestMicPermission();
     if (!ok) {
       setTokenError('マイクの使用許可が必要です');
       return;
     }
 
+    // エンジン作成
     const engine = createAgoraRtcEngine();
     engine.initialize({
       appId: AGORA_APP_ID,
@@ -135,6 +139,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     engineRef.current = engine;
   }, [AGORA_APP_ID]);
 
+  // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
     try {
       const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
@@ -180,10 +185,12 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   }, [roomId, initAgora]);
 
+  // 初回レンダリング時にトークン取得 & join
   useEffect(() => {
     fetchToken();
   }, [fetchToken]);
 
+  // トークンの有効期限が近づいたら更新
   useEffect(() => {
     const id = setInterval(() => {
       if (tokenExpireAtRef.current) {
@@ -211,6 +218,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     };
   }, []);
 
+  // ミュート切り替え
   const handleMuteToggle = () => {
     const next = !isMuted;
     setIsMuted(next);
@@ -223,6 +231,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   };
 
+  // 退出 & クリーンアップ
   const cleanupAndLeave = () => {
     if (engineRef.current) {
       try {
@@ -235,17 +244,12 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   };
 
+  // 退出ボタン押下時
   const handleLeaveRoom = () => {
     cleanupAndLeave();
     onClose();
     navigation.goBack();
     setParticipants([]);
-  };
-
-  // ★ 入室ボタン経由でトークン取得 & join
-  const joinRoom = () => {
-    if (tokenLoading) return;
-    fetchToken();
   };
 
   return (
@@ -367,6 +371,14 @@ export default function RoomScreen({ navigation, route }: Props) {
           </AlertDialog.Footer>
         </AlertDialog.Content>
       </AlertDialog>
+
+      {/* オーディオ */}
+      {engineRef.current && (
+        <>
+          <LocalUserAudio isMuted={isMuted} engine={engineRef.current} />
+          <RemoteUserAudio engine={engineRef.current} />
+        </>
+      )}
     </Box>
   );
 }
