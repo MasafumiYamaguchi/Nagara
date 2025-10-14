@@ -24,8 +24,7 @@ import {
   IRtcEngine,
   ChannelProfileType,
   ClientRoleType,
-  LocalUserAudio,
-  RemoteUserAudio,
+  ChannelMediaOptions,
 } from 'react-native-agora';
 
 import { RootStackParamList } from "./navigation/types";
@@ -47,9 +46,7 @@ const AGORA_APP_ID = constants.expoConfig?.extra?.agoraAppId;
 export default function RoomScreen({ navigation, route }: Props) {
   const { roomId, name } = route.params;
   const [isMuted, setIsMuted] = useState(false);
-  const [participants, setParticipants] = useState<Participant[]>([
-    { id: 'local', name: name || 'あなた', isMuted: false },
-  ]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
 
   const { isOpen, onOpen, onClose } = useDisclose();
   const cancelRef = React.useRef(null);
@@ -65,6 +62,9 @@ export default function RoomScreen({ navigation, route }: Props) {
   const tokenLoadingRef = useRef(false); // ← 追加: 多重取得防止
   const [tokenError, setTokenError] = useState<string | null>(null);
   const tokenExpireAtRef = useRef<number | null>(null);
+  const [agoraUserAccount, setAgoraUserAccount] = useState<string | null>(null);
+  const localUserIdRef = useRef<string>('local');
+  const agoraUserAccountRef = useRef<string | null>(null);
 
   // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
   const engineRef = useRef<IRtcEngine | null>(null);
@@ -82,11 +82,9 @@ export default function RoomScreen({ navigation, route }: Props) {
   };
 
   // Agora 初期化
-  const initAgora = useCallback(async () => {
-  const initAgora = useCallback(async () => {
-    if (engineRef.current || !AGORA_APP_ID) return;
+    const initAgora = useCallback(async () => {
+      if (engineRef.current || !AGORA_APP_ID) return;
 
-    const ok = await requestMicPermission();
     const ok = await requestMicPermission();
     if (!ok) {
       setTokenError('マイクの使用許可が必要です');
@@ -111,12 +109,15 @@ export default function RoomScreen({ navigation, route }: Props) {
     engine.registerEventHandler({
       onJoinChannelSuccess: (_connection, uid) => {
         console.log('[Agora] join success uid=', uid);
+        setAgoraUid(uid);
         joinedRef.current = true;
+        const localId = localUserIdRef.current ?? String(uid);
         setParticipants(prev => {
-          const local = prev.find(p => p.id === 'local') ?? prev.find(p => p.id === String(uid));
+          const local =
+            prev.find(p => p.id === 'local') ?? prev.find(p => p.id === localId);
           const me = {
-            id: String(uid),
-            name: local?.name ?? `User ${uid}`,
+            id: localId,
+            name: local?.name ?? `User ${localId}`,
             isMuted: local?.isMuted ?? false,
             avatarUrl: local?.avatarUrl,
             speakingVolume: 0,
@@ -146,14 +147,14 @@ export default function RoomScreen({ navigation, route }: Props) {
         );
       },
       onAudioVolumeIndication: (_connection, speakers) => {
-        // speakers: [{uid, volume, vad}]
+        const localId = localUserIdRef.current ?? (agoraUid != null ? String(agoraUid) : 'local');
         setParticipants(prev =>
           prev.map(p => {
-            const s = speakers.find(sp =>
-              (sp.uid === 0 && (p.id === 'local' || p.id === String(agoraUid))) ||
-              String(sp.uid) === p.id
+            const hit = speakers.find(s =>
+              s.uid === 0 ? p.id === localId : p.id === String(s.uid)
             );
-            return s ? { ...p, speakingVolume: s.volume } : { ...p, speakingVolume: 0 };
+
+            return { ...p, speakingVolume: hit ? hit.volume : 0 };
           })
         );
       },
@@ -213,37 +214,95 @@ export default function RoomScreen({ navigation, route }: Props) {
       if (!res.ok) throw new Error(`Failed token: ${res.status}`);
       const data = await res.json();
 
-      const parsedUid =
-        typeof data.uid === 'number'
-          ? data.uid
-          : Number.parseInt(String(data.uid ?? ''), 10) || 0;
+      const rawUid = data.uid;
+      let nextUid: number | null = null;
+      let nextAccount: string | null = null;
 
-      const expireMs =
-        data.expireAt
-          ? new Date(data.expireAt).getTime()
-          : Date.now() + ((data.expireSeconds ?? data.expireAtSeconds ?? 3600) * 1000);
+      if (typeof rawUid === 'number') {
+        nextUid = rawUid;
+      } else if (typeof rawUid === 'string') {
+        const trimmed = rawUid.trim();
+        if (trimmed.length > 0) {
+          nextAccount = trimmed;
+        }
+      }
+      let effectiveUid: number | null = nextUid;
+      let effectiveAccount: string | null = nextAccount;
 
-      setAgoraToken(data.token);
-      setAgoraUid(parsedUid);
-      tokenExpireAtRef.current = expireMs;
+      setAgoraUid(nextUid);
+      setAgoraUserAccount(nextAccount);
+      agoraUserAccountRef.current = nextAccount;
+      localUserIdRef.current =
+        nextAccount ?? (nextUid != null ? String(nextUid) : 'local');
+
+      const options: ChannelMediaOptions = {
+        clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+      };
+
+      const channelId =
+        typeof roomId === 'string' ? roomId.trim() : String(roomId);
+      if (!channelId) {
+        setTokenError('channelId が空っぽだと join できないよ');
+        return;
+      }
+      console.log('[Agora] join params', {
+        channelId,
+        tokenSlice: data.token.slice(0, 12),
+        hasAccount: !!nextAccount,
+        nextUid,
+      });
 
       await initAgora();
       if (engineRef.current && !joinedRef.current) {
-        console.log('[Agora] joinChannel start');
-        const joinCode = engineRef.current.joinChannel(
-          data.token,
-          roomId,
-          parsedUid,
-          {
-            clientRoleType: ClientRoleType.ClientRoleBroadcaster,
-            channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+        let joinCode = 0;
+
+        if (nextAccount && AGORA_APP_ID) {
+          const registerCode = engineRef.current.registerLocalUserAccount(
+            AGORA_APP_ID,
+            nextAccount,
+          );
+          if (registerCode !== 0) {
+            throw new Error(`registerLocalUserAccount failed (${registerCode})`);
           }
-        );
+          joinCode = engineRef.current.joinChannelWithUserAccount(
+            data.token,
+            channelId,
+            nextAccount,
+            options,
+          );
+          if (joinCode === -2 && /^\d+$/.test(nextAccount)) {
+            console.log('[Agora] joinChannelWithUserAccount -2 -> fallback to numeric uid');
+            effectiveAccount = null;
+            effectiveUid = Number.parseInt(nextAccount, 10);
+            joinCode = engineRef.current.joinChannel(
+              data.token,
+              channelId,
+              effectiveUid,
+              options,
+            );
+          }
+        } else {
+          const uidForJoin = nextUid ?? 0;
+          effectiveUid = uidForJoin;
+          joinCode = engineRef.current.joinChannel(
+            data.token,
+            channelId,
+            uidForJoin,
+            options,
+          );
+        }
         if (joinCode !== 0) {
           console.log('[Agora] joinChannel failed', joinCode);
           setTokenError(`join に失敗 (${joinCode})`);
           return;
         }
+
+        setAgoraUid(effectiveUid);
+        setAgoraUserAccount(effectiveAccount);
+        agoraUserAccountRef.current = effectiveAccount;
+        localUserIdRef.current =
+          effectiveAccount ?? (effectiveUid != null ? String(effectiveUid) : 'local');
       }
     } catch (e: any) {
       console.log('[Agora] token error', e);
@@ -258,7 +317,6 @@ export default function RoomScreen({ navigation, route }: Props) {
 
   // 初回レンダリング時にトークン取得 & join
   useEffect(() => {
-    // 初回だけ自動取得（ボタン制御にしたいならここ消して joinRoom だけで呼ぶ）
     fetchToken();
   }, [roomId, fetchToken]);
 
@@ -295,10 +353,10 @@ export default function RoomScreen({ navigation, route }: Props) {
     const next = !isMuted;
     setIsMuted(next);
     if (engineRef.current) {
-      // true でミュート
       engineRef.current.muteLocalAudioStream(next);
+      const localId = localUserIdRef.current ?? (agoraUid != null ? String(agoraUid) : 'local');
       setParticipants(prev =>
-        prev.map(p => p.id === 'local' ? { ...p, isMuted: next } : p)
+        prev.map(p => (p.id === localId ? { ...p, isMuted: next } : p))
       );
     }
   };
@@ -314,6 +372,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       } catch {}
       engineRef.current = null;
     }
+    console.log('Left channel and cleaned up');
   };
 
   // 退出ボタン押下時
@@ -340,6 +399,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       </Box>
 
       <Box flex={1} p={4}>
+        {/* 参加者一覧 */}
           <FlatList
             data={participants}
             keyExtractor={(item) => item.id}
@@ -453,14 +513,7 @@ export default function RoomScreen({ navigation, route }: Props) {
           </AlertDialog.Footer>
         </AlertDialog.Content>
       </AlertDialog>
-
-      {/* オーディオ */}
-      {engineRef.current && (
-        <>
-          <LocalUserAudio isMuted={isMuted} engine={engineRef.current} />
-          <RemoteUserAudio engine={engineRef.current} />
-        </>
-      )}
     </Box>
   );
+  
 }
