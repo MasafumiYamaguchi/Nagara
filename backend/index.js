@@ -88,17 +88,30 @@ app.get('/rooms', async (req, res) => {
 app.get('/rooms/:roomId/token', async (req, res) => {
   try {
     const { roomId } = req.params;
-    const uid = Number(req.query.uid) || Math.floor(Math.random() * 100000);
-    const roleparam = req.query.role === 'audience' ? 'audience' : 'publisher';
+    // client から numeric uid か userAccount を受け取れるようにする
+    const uidParam = req.query.uid;
+    const userAccount = req.query.userAccount; // 例: Firebase uid を入れる
 
-    const { token, expireAt, expireSeconds } = buildRtcToken({
+    const roleparam = req.query.role === 'audience' ? 'audience' : 'publisher';
+    const expireSeconds = 3600;
+
+    // buildRtcToken は以下の rtc/agoraToken.js を参照
+    const { token, expireAt } = buildRtcToken({
       channelName: roomId,
-      uid,
+      uid: uidParam ? Number(uidParam) : undefined,
+      userAccount: userAccount ? String(userAccount) : undefined,
       role: roleparam,
-      expireSeconds: 3600,
+      expireSeconds,
     });
 
-    res.json({ token, uid , role: roleparam, expireAt, expireSeconds });
+    // レスポンスに、client が使う ID（uid か userAccount）を返す
+    res.json({
+      token,
+      uid: userAccount ? userAccount : (uidParam ? Number(uidParam) : undefined),
+      role: roleparam,
+      expireAt,
+      expireSeconds,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message});
   }

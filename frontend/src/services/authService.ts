@@ -1,6 +1,7 @@
 import auth from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import firestore from '@react-native-firebase/firestore';
 
 // アプリインスタンスを取得
 const app = getApp();
@@ -17,10 +18,20 @@ GoogleSignin.configure({
 export function initializeAuthObserver() {
   const { setUser, setInitializing } = useAuthStore.getState();
   // appを明示的に渡す
-  return auth(app).onAuthStateChanged((user) => {
+  return auth(app).onAuthStateChanged(async (user) => {
     setUser(user);
     if (useAuthStore.getState().isInitializing) {
       setInitializing(false);
+    }
+    var userDoc = await firestore().collection('users').doc(user?.uid).get();
+    if (!userDoc.exists) {
+      // ユーザードキュメントが存在しない場合、新規作成
+      await firestore().collection('users').doc(user?.uid).set({
+        uid: user?.uid,
+        email: user?.email,
+        displayName: user?.displayName || '名無し',
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
     }
   });
 }

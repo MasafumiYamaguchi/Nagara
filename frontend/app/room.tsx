@@ -17,8 +17,6 @@ import {
 } from 'native-base';
 import { Ionicons } from '@expo/vector-icons';
 import constants from 'expo-constants';
-
-// ↓ 変更: RtcEngine ではなく createAgoraRtcEngine / IRtcEngine を使用
 import {
   createAgoraRtcEngine,
   IRtcEngine,
@@ -26,6 +24,10 @@ import {
   ClientRoleType,
   ChannelMediaOptions,
 } from 'react-native-agora';
+
+// 変更: react-native-firebase の Firestore を使う
+import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
 
 import { RootStackParamList } from "./navigation/types";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -65,6 +67,32 @@ export default function RoomScreen({ navigation, route }: Props) {
   const [agoraUserAccount, setAgoraUserAccount] = useState<string | null>(null);
   const localUserIdRef = useRef<string>('local');
   const agoraUserAccountRef = useRef<string | null>(null);
+
+  // 追加: displayName キャッシュ（同じユーザーを何度も読まない）
+  const nameCacheRef = useRef<Record<string, string>>({});
+
+  // 追加: Firestore から表示名を取得して participants を更新するヘルパー
+  const getDisplayName = useCallback(async (id: string) => {
+    if (!id) return null;
+    if (nameCacheRef.current[id]) return nameCacheRef.current[id];
+
+    try {
+      const userDoc = await firestore().collection('users').doc(id).get(); // コレクション名はプロジェクトに合わせて
+      const displayName =
+        (userDoc.data()?.displayName as string | undefined) ??
+        `User ${id}`;
+      nameCacheRef.current[id] = displayName;
+
+      // participants を更新
+      setParticipants(prev =>
+        prev.map(p => (p.id === id ? { ...p, name: displayName } : p))
+      );
+      return displayName;
+    } catch (e) {
+      console.warn('getDisplayName failed', e);
+      return `User ${id}`;
+    }
+  }, []);
 
   // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
   const engineRef = useRef<IRtcEngine | null>(null);
@@ -125,14 +153,20 @@ export default function RoomScreen({ navigation, route }: Props) {
           const others = prev.filter(p => p.id !== 'local' && p.id !== String(uid));
           return [me, ...others];
         });
+
+        // 追加: Firestore から自分の表示名を取得して更新
+        getDisplayName(localId).catch(() => {});
       },
       onUserJoined: (_connection, remoteUid) => {
         console.log('[Agora] remote joined', remoteUid);
+        const id = String(remoteUid);
         setParticipants(prev => {
-          const id = String(remoteUid);
-            if (prev.some(p => p.id === id)) return prev;
-            return [...prev, { id, name: `User ${remoteUid}`, isMuted: false }];
+          if (prev.some(p => p.id === id)) return prev;
+          return [...prev, { id, name: `User ${remoteUid}`, isMuted: false }];
         });
+
+        // 追加: 新しい参加者の表示名を Firestore から取得して更新
+        getDisplayName(id).catch(() => {});
       },
       onUserOffline: (_connection, remoteUid) => {
         console.log('[Agora] remote offline', remoteUid);
@@ -173,7 +207,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     });
 
     engineRef.current = engine;
-  }, [AGORA_APP_ID]);
+  }, [AGORA_APP_ID, getDisplayName]);
 
   // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
@@ -210,7 +244,12 @@ export default function RoomScreen({ navigation, route }: Props) {
     setTokenError(null);
     try {
       console.log('[Agora] fetch token...');
-      const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
+      // 変更: トークン取得時に Firebase UID を付与する
+      const currentUser = auth().currentUser;
+      const userAccountParam = currentUser ? encodeURIComponent(currentUser.uid) : '';
+      const tokenUrl =
+        `https://api.tsuuwa.com/rooms/${roomId}/token${userAccountParam ? `?userAccount=${userAccountParam}` : ''}`;
+      const res = await fetch(tokenUrl);
       if (!res.ok) throw new Error(`Failed token: ${res.status}`);
       const data = await res.json();
 
@@ -358,6 +397,55 @@ export default function RoomScreen({ navigation, route }: Props) {
       setParticipants(prev =>
         prev.map(p => (p.id === localId ? { ...p, isMuted: next } : p))
       );
+    }
+  };
+
+  // ユーザーIDを変更して再参加するヘルパー
+  const switchAgoraId = async (newId: string | number) => {
+    if (!engineRef.current) return;
+    // 既に入ってたら退出
+    if (joinedRef.current) {
+      try { engineRef.current.leaveChannel(); } catch {}
+      joinedRef.current = false;
+    }
+
+    // numeric uid で参加する場合
+    if (typeof newId === 'number') {
+      if (!agoraToken) {
+        console.error('Agora token is null. Cannot join channel.');
+        return;
+      }
+      const joinCode = engineRef.current.joinChannel(agoraToken, String(roomId), newId, {
+        clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+      });
+      if (joinCode === 0) {
+        localUserIdRef.current = String(newId);
+        setAgoraUid(newId);
+        joinedRef.current = true;
+      }
+      return;
+    }
+
+    // userAccount（文字列）で参加する場合
+    const account = String(newId);
+    const reg = engineRef.current.registerLocalUserAccount(AGORA_APP_ID!, account);
+    if (reg !== 0) {
+      console.warn('registerLocalUserAccount failed', reg);
+      return;
+    }
+    if (!agoraToken) {
+      console.error('Agora token is null. Cannot join channel.');
+      return;
+    }
+    const joinCode = engineRef.current.joinChannelWithUserAccount(agoraToken, String(roomId), account, {
+      clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+      channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+    });
+    if (joinCode === 0) {
+      localUserIdRef.current = account;
+      setAgoraUserAccount(account);
+      joinedRef.current = true;
     }
   };
 
