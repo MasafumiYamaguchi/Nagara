@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.tsuuwa",
+      "bundleIdentifier": "com.company.tsuuwa",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSAppTransportSecurity": {
@@ -31,12 +31,16 @@
       }
     },
     "android": {
+      "permissions": [
+        "RECORD_AUDIO",
+        "DETECT_SCREEN_CAPTURE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       },
       "googleServicesFile": "./google-services.json",
-      "package": "com.anonymous.tsuuwa"
+      "package": "com.company.tsuuwa"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -49,18 +53,13 @@
       "@react-native-google-signin/google-signin",
       [
         "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static"
-          }
-        }
+        { "ios": { "useFrameworks": "static" } }
       ],
       [
         "expo-font",
-        {
-          "fonts": ["./assets/fonts/Inter.ttf"]
-        }
-      ]
+        { "fonts": ["./assets/fonts/Inter.ttf"] }
+      ],
+      "expo-dev-client"
     ]
   }
 }

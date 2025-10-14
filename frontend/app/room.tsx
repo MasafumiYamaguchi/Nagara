@@ -62,6 +62,7 @@ export default function RoomScreen({ navigation, route }: Props) {
   const [agoraToken, setAgoraToken] = useState<string | null>(null);
   const [agoraUid, setAgoraUid] = useState<number | null>(null);
   const [tokenLoading, setTokenLoading] = useState(false);
+  const tokenLoadingRef = useRef(false); // ← 追加: 多重取得防止
   const [tokenError, setTokenError] = useState<string | null>(null);
   const tokenExpireAtRef = useRef<number | null>(null);
 
@@ -82,8 +83,10 @@ export default function RoomScreen({ navigation, route }: Props) {
 
   // Agora 初期化
   const initAgora = useCallback(async () => {
+  const initAgora = useCallback(async () => {
     if (engineRef.current || !AGORA_APP_ID) return;
 
+    const ok = await requestMicPermission();
     const ok = await requestMicPermission();
     if (!ok) {
       setTokenError('マイクの使用許可が必要です');
@@ -99,40 +102,72 @@ export default function RoomScreen({ navigation, route }: Props) {
     engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
     engine.enableAudio();
     engine.setDefaultAudioRouteToSpeakerphone(true);
+    // 音声設定を追加
+    engine.adjustRecordingSignalVolume(100);
+    engine.adjustPlaybackSignalVolume(100);
     engine.enableAudioVolumeIndication(500, 3, true); // 500msごとに音量インジケーションを有効化
 
     // イベント登録
     engine.registerEventHandler({
-      onJoinChannelSuccess: () => {
+      onJoinChannelSuccess: (_connection, uid) => {
+        console.log('[Agora] join success uid=', uid);
         joinedRef.current = true;
-      },
-      onUserJoined: (uid) => {
         setParticipants(prev => {
-          if (prev.some(p => p.id === String(uid))) return prev;
-          return [...prev, { id: String(uid), name: `User ${uid}`, isMuted: false }];
+          const local = prev.find(p => p.id === 'local') ?? prev.find(p => p.id === String(uid));
+          const me = {
+            id: String(uid),
+            name: local?.name ?? `User ${uid}`,
+            isMuted: local?.isMuted ?? false,
+            avatarUrl: local?.avatarUrl,
+            speakingVolume: 0,
+          };
+          const others = prev.filter(p => p.id !== 'local' && p.id !== String(uid));
+          return [me, ...others];
         });
       },
-      onUserOffline: (uid) => {
-        setParticipants(prev => prev.filter(p => p.id !== String(uid)));
+      onUserJoined: (_connection, remoteUid) => {
+        console.log('[Agora] remote joined', remoteUid);
+        setParticipants(prev => {
+          const id = String(remoteUid);
+            if (prev.some(p => p.id === id)) return prev;
+            return [...prev, { id, name: `User ${remoteUid}`, isMuted: false }];
+        });
       },
-      onUserMuteAudio: (uid, muted) => {
+      onUserOffline: (_connection, remoteUid) => {
+        console.log('[Agora] remote offline', remoteUid);
+        setParticipants(prev => prev.filter(p => p.id !== String(remoteUid)));
+      },
+      onUserMuteAudio: (_connection, remoteUid, muted) => {
+        console.log('[Agora] remote mute change', remoteUid, muted);
         setParticipants(prev =>
           prev.map(p =>
-            p.id === String(uid) ? { ...p, isMuted: !!muted } : p
+            p.id === String(remoteUid) ? { ...p, isMuted: !!muted } : p
           )
         );
       },
-      onAudioVolumeIndication: (_speakers, speakers) => {
+      onAudioVolumeIndication: (_connection, speakers) => {
+        // speakers: [{uid, volume, vad}]
         setParticipants(prev =>
           prev.map(p => {
-            const s = speakers.find(sp => String(sp.uid) === p.id || (sp.uid === 0 && p.id === 'local'));
+            const s = speakers.find(sp =>
+              (sp.uid === 0 && (p.id === 'local' || p.id === String(agoraUid))) ||
+              String(sp.uid) === p.id
+            );
             return s ? { ...p, speakingVolume: s.volume } : { ...p, speakingVolume: 0 };
           })
         );
       },
       onTokenPrivilegeWillExpire: () => {
-        // トークン更新
+        console.log('[Agora] token will expire -> renew');
         fetchNewTokenAndRenew();
+      },
+      onLeaveChannel: () => {
+        console.log('[Agora] left channel');
+        joinedRef.current = false;
+      },
+      onError: (error, message) => {
+        console.log('[Agora] error', error, message);
+        setTokenError(`Agora error ${error}: ${message}`);
       }
     });
 
@@ -145,7 +180,11 @@ export default function RoomScreen({ navigation, route }: Props) {
       const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
       if (!res.ok) throw new Error('renew token fail');
       const data = await res.json();
-      tokenExpireAtRef.current = Date.now() + ((data.expireAtSeconds ?? 3600) * 1000);
+      const expireMs =
+        data.expireAt
+          ? new Date(data.expireAt).getTime()
+          : Date.now() + ((data.expireSeconds ?? data.expireAtSeconds ?? 3600) * 1000);
+      tokenExpireAtRef.current = expireMs;
       setAgoraToken(data.token);
       if (engineRef.current) {
         engineRef.current.renewToken(data.token);
@@ -155,40 +194,73 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   }, [roomId]);
 
-  // トークン取得
-  const fetchToken = useCallback(async () => {
+  // トークン取得（多重呼び出し防止 & 安定した関数参照にする）
+  const fetchToken = useCallback(async (opts?: { force?: boolean }) => {
+    if (joinedRef.current && !opts?.force) {
+      console.log('[Agora] already joined -> skip fetchToken');
+      return;
+    }
+    if (tokenLoadingRef.current && !opts?.force) {
+      console.log('[Agora] token fetch in-flight -> skip');
+      return;
+    }
+    tokenLoadingRef.current = true;
     setTokenLoading(true);
     setTokenError(null);
     try {
+      console.log('[Agora] fetch token...');
       const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
-      if (!res.ok) throw new Error(`Failed to fetch token: ${res.status} ${res.statusText}`);
+      if (!res.ok) throw new Error(`Failed token: ${res.status}`);
       const data = await res.json();
-      setAgoraToken(data.token);
-      setAgoraUid(data.uid);
-      tokenExpireAtRef.current = Date.now() + ((data.expireAtSeconds ?? 3600) * 1000);
 
-      // 初期化 → チャンネル参加
-      initAgora();
-      if (engineRef.current) {
-        engineRef.current.joinChannel(
+      const parsedUid =
+        typeof data.uid === 'number'
+          ? data.uid
+          : Number.parseInt(String(data.uid ?? ''), 10) || 0;
+
+      const expireMs =
+        data.expireAt
+          ? new Date(data.expireAt).getTime()
+          : Date.now() + ((data.expireSeconds ?? data.expireAtSeconds ?? 3600) * 1000);
+
+      setAgoraToken(data.token);
+      setAgoraUid(parsedUid);
+      tokenExpireAtRef.current = expireMs;
+
+      await initAgora();
+      if (engineRef.current && !joinedRef.current) {
+        console.log('[Agora] joinChannel start');
+        const joinCode = engineRef.current.joinChannel(
           data.token,
           roomId,
-          data.uid,
-          { clientRoleType: ClientRoleType.ClientRoleBroadcaster }
+          parsedUid,
+          {
+            clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+            channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+          }
         );
+        if (joinCode !== 0) {
+          console.log('[Agora] joinChannel failed', joinCode);
+          setTokenError(`join に失敗 (${joinCode})`);
+          return;
+        }
       }
     } catch (e: any) {
-      setTokenError(e?.message || 'トークンの取得に失敗しました');
+      console.log('[Agora] token error', e);
+      console.log('[Agora] エラー詳細:', JSON.stringify(e));
+      setTokenError(e?.message || 'トークン取得失敗');
       setAgoraToken(null);
     } finally {
+      tokenLoadingRef.current = false;
       setTokenLoading(false);
     }
-  }, [roomId, initAgora]);
+  }, [roomId, initAgora, agoraToken]); // ← tokenLoading を依存から外した
 
   // 初回レンダリング時にトークン取得 & join
   useEffect(() => {
+    // 初回だけ自動取得（ボタン制御にしたいならここ消して joinRoom だけで呼ぶ）
     fetchToken();
-  }, [fetchToken]);
+  }, [roomId, fetchToken]);
 
   // トークンの有効期限が近づいたら更新
   useEffect(() => {
@@ -354,7 +426,17 @@ export default function RoomScreen({ navigation, route }: Props) {
 
       <AlertDialog leastDestructiveRef={cancelRef} isOpen={isOpen} onClose={onClose}>
         <AlertDialog.Content>
-          <AlertDialog.CloseButton />
+          {/* CloseButton 差し替え: NativeBase のやつが fill="" 投げて警告出るので自作 */}
+          <IconButton
+            position="absolute"
+            top={2}
+            right={2}
+            variant="ghost"
+            onPress={onClose}
+            _pressed={{ bg: 'transparent', opacity: 0.6 }}
+            _icon={{ as: Ionicons, name: 'close', color: 'coolGray.400', size: '5' }}
+            hitSlop={8}
+          />
           <AlertDialog.Header>通話を終了</AlertDialog.Header>
           <AlertDialog.Body>
             本当に通話を終了しますか？

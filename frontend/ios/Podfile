@@ -53,8 +53,6 @@ target 'Tsuuwa' do
     :flipper_configuration => flipper_config
   )
 
-  pod 'GoogleSignIn'
-
   post_install do |installer|
     react_native_post_install(
       installer,

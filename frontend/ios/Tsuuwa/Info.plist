@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>tsuuwa</string>
-          <string>com.anonymous.tsuuwa</string>
+          <string>com.company.tsuuwa</string>
         </array>
       </dict>
       <dict>
@@ -38,27 +38,35 @@
         </array>
       </dict>
       <dict>
-        <key>CFBundleURLName</key>
-        <string>com.anonymous.tsuuwa</string>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>YOUR_REVERSED_CLIENT_ID</string>
+          <string>exp+tsuuwa</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
-    <key>GIDClientID</key>
-    <string>YOUR_CLIENT_ID_FROM_GOOGLESERVICE_INFO_PLIST</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
-      <false/>
-      <key>NSAllowsLocalNetworking</key>
       <true/>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>57.181.137.17</key>
+        <dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+      </dict>
     </dict>
+    <key>UIAppFonts</key>
+    <array>
+      <string>Inter.ttf</string>
+    </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
