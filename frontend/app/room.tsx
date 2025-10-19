@@ -1,5 +1,7 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from './navigation/types';
 import {
   Box,
   VStack,
@@ -25,12 +27,9 @@ import {
   ChannelMediaOptions,
 } from 'react-native-agora';
 
-// 変更: react-native-firebase の Firestore を使う
-import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
-
-import { RootStackParamList } from "./navigation/types";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { getApp } from '@react-native-firebase/app';
+import { getFirestore } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
 
 // 参加者の情報
 interface Participant {
@@ -71,28 +70,43 @@ export default function RoomScreen({ navigation, route }: Props) {
   // 追加: displayName キャッシュ（同じユーザーを何度も読まない）
   const nameCacheRef = useRef<Record<string, string>>({});
 
-  // 追加: Firestore から表示名を取得して participants を更新するヘルパー
+  // アプリインスタンスを取得 
+  const app = getApp();
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  // Agoraのuid→userAccountのマップ
+  const uidAccountMapRef = useRef<Record<string, string>>({});
+
+  // 追加/修正: Firestore から表示名を取得（RN Firebase流）
   const getDisplayName = useCallback(async (id: string) => {
     if (!id) return null;
     if (nameCacheRef.current[id]) return nameCacheRef.current[id];
 
     try {
-      const userDoc = await firestore().collection('users').doc(id).get(); // コレクション名はプロジェクトに合わせて
+      const userDoc = await db.collection('users').doc(id).get();
+      if (!userDoc.exists) {
+        const fallback = `User ${id}`;
+        nameCacheRef.current[id] = fallback;
+        return fallback;
+      }
+      const data = userDoc.data() as any;
+      // displayName がない場合のフォールバックを拡張
       const displayName =
-        (userDoc.data()?.displayName as string | undefined) ??
-        `User ${id}`;
+        (data?.displayName as string)
+        ?? `User ${id}`;
+
       nameCacheRef.current[id] = displayName;
 
-      // participants を更新
       setParticipants(prev =>
         prev.map(p => (p.id === id ? { ...p, name: displayName } : p))
       );
+      console.log('[Firestore] users/%s ->', id, data);
       return displayName;
     } catch (e) {
       console.warn('getDisplayName failed', e);
       return `User ${id}`;
     }
-  }, []);
+  }, [db]);
 
   // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
   const engineRef = useRef<IRtcEngine | null>(null);
@@ -110,8 +124,8 @@ export default function RoomScreen({ navigation, route }: Props) {
   };
 
   // Agora 初期化
-    const initAgora = useCallback(async () => {
-      if (engineRef.current || !AGORA_APP_ID) return;
+  const initAgora = useCallback(async () => {
+    if (engineRef.current || !AGORA_APP_ID) return;
 
     const ok = await requestMicPermission();
     if (!ok) {
@@ -159,24 +173,91 @@ export default function RoomScreen({ navigation, route }: Props) {
       },
       onUserJoined: (_connection, remoteUid) => {
         console.log('[Agora] remote joined', remoteUid);
-        const id = String(remoteUid);
+        const uid = String(remoteUid);
+        const initialId = uidAccountMapRef.current[uid] ?? uid;
         setParticipants(prev => {
-          if (prev.some(p => p.id === id)) return prev;
-          return [...prev, { id, name: `User ${remoteUid}`, isMuted: false }];
+          if (prev.some(p => p.id === initialId)) return prev;
+          return [...prev, { id: initialId, name: `User ${uid}`, isMuted: false }];
         });
 
-        // 追加: 新しい参加者の表示名を Firestore から取得して更新
-        getDisplayName(id).catch(() => {});
+        // 非同期で表示名を取得してから更新する（即時更新だと名前が空のままになる）
+        (async () => {
+          try {
+            const accountOrUid = uidAccountMapRef.current[uid] ?? uid;
+            const displayName = await getDisplayName(accountOrUid);
+            if (!displayName) return;
+
+            // account をキーにして名前を更新
+            setParticipants(prev =>
+              prev.map(p => (p.id === accountOrUid ? { ...p, name: displayName } : p))
+            );
+
+            // もし最初に uidStr で追加していて account が別なら id も置き換える
+            if (accountOrUid !== uid) {
+              setParticipants(prev =>
+                prev.map(p => (p.id === uid ? { ...p, id: accountOrUid, name: displayName } : p))
+              );
+            }
+          } catch (e) {
+            console.warn('[Agora] getDisplayName error', e);
+          }
+
+          try {
+            const info = engine.getUserInfoByUid?.(remoteUid);
+            console.log('[Agora] getUserInfoByUid ->', info);
+          } catch (e) {
+            console.log('[Agora] getUserInfoByUid error', e);
+          }
+        })();
+      },
+      onUserInfoUpdated(uidMaybe: any, userInfoMaybe: any) {
+        const rawArgs = arguments as IArguments;
+        let uid = uidMaybe;
+        let userInfo = userInfoMaybe;
+
+        if (
+          uidMaybe &&
+          typeof uidMaybe === 'object' &&
+          uidMaybe !== null &&
+          typeof userInfoMaybe === 'number'
+        ) {
+          uid = userInfoMaybe;
+          userInfo = rawArgs[2];
+        }
+
+        console.log('[Agora] onUserInfoUpdated', uid, userInfo);
+        const account = userInfo?.userAccount;
+        const uidStr = String(uid);
+
+        if (account) {
+          uidAccountMapRef.current[uidStr] = account;
+
+          setParticipants(prev => {
+            if (prev.some(p => p.id === account)) {
+              return prev.filter(p => p.id !== uidStr);
+            }
+            return prev.map(p => (p.id === uidStr ? { ...p, id: account } : p));
+          });
+
+          getDisplayName(account).catch(() => {});
+        } else {
+          getDisplayName(uidStr).catch(() => {});
+        }
       },
       onUserOffline: (_connection, remoteUid) => {
         console.log('[Agora] remote offline', remoteUid);
-        setParticipants(prev => prev.filter(p => p.id !== String(remoteUid)));
+        const acct = uidAccountMapRef.current[String(remoteUid)];
+        setParticipants(prev =>
+          prev.filter(p => p.id !== (acct ?? String(remoteUid)))
+        );
       },
       onUserMuteAudio: (_connection, remoteUid, muted) => {
         console.log('[Agora] remote mute change', remoteUid, muted);
+        const acct = uidAccountMapRef.current[String(remoteUid)];
+        const targetId = acct ?? String(remoteUid);
         setParticipants(prev =>
           prev.map(p =>
-            p.id === String(remoteUid) ? { ...p, isMuted: !!muted } : p
+            p.id === targetId ? { ...p, isMuted: !!muted } : p
           )
         );
       },
@@ -184,10 +265,11 @@ export default function RoomScreen({ navigation, route }: Props) {
         const localId = localUserIdRef.current ?? (agoraUid != null ? String(agoraUid) : 'local');
         setParticipants(prev =>
           prev.map(p => {
-            const hit = speakers.find(s =>
-              s.uid === 0 ? p.id === localId : p.id === String(s.uid)
-            );
-
+            const hit = speakers.find(s => {
+              if (s.uid === 0) return p.id === localId;
+              const mapped = uidAccountMapRef.current[String(s.uid)] ?? String(s.uid);
+              return p.id === mapped;
+            });
             return { ...p, speakingVolume: hit ? hit.volume : 0 };
           })
         );
@@ -225,7 +307,7 @@ export default function RoomScreen({ navigation, route }: Props) {
         engineRef.current.renewToken(data.token);
       }
     } catch (error) {
-      console.error(error);
+      console.error('Error renewing token:', error);
     }
   }, [roomId]);
 
@@ -244,8 +326,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     setTokenError(null);
     try {
       console.log('[Agora] fetch token...');
-      // 変更: トークン取得時に Firebase UID を付与する
-      const currentUser = auth().currentUser;
+      const currentUser = auth.currentUser;
       const userAccountParam = currentUser ? encodeURIComponent(currentUser.uid) : '';
       const tokenUrl =
         `https://api.tsuuwa.com/rooms/${roomId}/token${userAccountParam ? `?userAccount=${userAccountParam}` : ''}`;
@@ -265,6 +346,12 @@ export default function RoomScreen({ navigation, route }: Props) {
           nextAccount = trimmed;
         }
       }
+
+      // サーバーがuidを返さなくても、手元のFirebase UIDをuserAccountとして使う
+      if (!nextAccount && currentUser?.uid) {
+        nextAccount = currentUser.uid;
+      }
+
       let effectiveUid: number | null = nextUid;
       let effectiveAccount: string | null = nextAccount;
 
@@ -301,6 +388,7 @@ export default function RoomScreen({ navigation, route }: Props) {
             AGORA_APP_ID,
             nextAccount,
           );
+          console.log('[Agora] registerLocalUserAccount ->', registerCode);
           if (registerCode !== 0) {
             throw new Error(`registerLocalUserAccount failed (${registerCode})`);
           }
@@ -310,7 +398,10 @@ export default function RoomScreen({ navigation, route }: Props) {
             nextAccount,
             options,
           );
+          console.log('[Agora] joinChannelWithUserAccount ->', joinCode);
+
           if (joinCode === -2 && /^\d+$/.test(nextAccount)) {
+            // ありえないけど数値っぽい文字列ならフォールバック
             console.log('[Agora] joinChannelWithUserAccount -2 -> fallback to numeric uid');
             effectiveAccount = null;
             effectiveUid = Number.parseInt(nextAccount, 10);
@@ -330,6 +421,7 @@ export default function RoomScreen({ navigation, route }: Props) {
             uidForJoin,
             options,
           );
+          console.log('[Agora] joinChannel (uid) ->', joinCode);
         }
         if (joinCode !== 0) {
           console.log('[Agora] joinChannel failed', joinCode);
@@ -468,6 +560,20 @@ export default function RoomScreen({ navigation, route }: Props) {
     cleanupAndLeave();
     onClose();
     navigation.goBack();
+    // 部屋に誰もいなくなったら削除リクエストを送る
+    if(participants.length == 1) {
+      fetch(`https://api.tsuuwa.com/rooms/${roomId}`, {
+        method: 'DELETE',
+      }).then(res => {
+        if (res.ok) {
+          console.log('Room deleted successfully');
+        } else {
+          console.warn('Failed to delete room:', res.status);
+        }
+      }).catch(err => {
+        console.error('Error deleting room:', err);
+      });
+    }
     setParticipants([]);
   };
 

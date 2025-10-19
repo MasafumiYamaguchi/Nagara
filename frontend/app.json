@@ -27,7 +27,8 @@
               "NSIncludesSubdomains": true
             }
           }
-        }
+        },
+        "NSMicrophoneUsageDescription": "音声入力のためにマイクを使用します"
       }
     },
     "android": {
@@ -58,8 +59,7 @@
       [
         "expo-font",
         { "fonts": ["./assets/fonts/Inter.ttf"] }
-      ],
-      "expo-dev-client"
+      ]
     ]
   }
 }

@@ -1251,78 +1251,8 @@ PODS:
     - ExpoModulesCore
   - EXFont (11.10.3):
     - ExpoModulesCore
-  - EXJSONUtils (0.12.3)
-  - EXManifests (0.13.2):
-    - ExpoModulesCore
   - Expo (50.0.21):
     - ExpoModulesCore
-  - expo-dev-client (3.3.12):
-    - EXManifests
-    - expo-dev-launcher
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - EXUpdatesInterface
-  - expo-dev-launcher (3.6.10):
-    - EXManifests
-    - expo-dev-launcher/Main (= 3.6.10)
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - ExpoModulesCore
-    - EXUpdatesInterface
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-    - React-RCTAppDelegate
-  - expo-dev-launcher/Main (3.6.10):
-    - EXManifests
-    - expo-dev-launcher/Unsafe
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - ExpoModulesCore
-    - EXUpdatesInterface
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-    - React-RCTAppDelegate
-  - expo-dev-launcher/Unsafe (3.6.10):
-    - EXManifests
-    - expo-dev-menu
-    - expo-dev-menu-interface
-    - ExpoModulesCore
-    - EXUpdatesInterface
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-    - React-RCTAppDelegate
-  - expo-dev-menu (4.5.8):
-    - expo-dev-menu/Main (= 4.5.8)
-    - expo-dev-menu/ReactNativeCompatibles (= 4.5.8)
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-  - expo-dev-menu-interface (1.7.2)
-  - expo-dev-menu/Main (4.5.8):
-    - EXManifests
-    - expo-dev-menu-interface
-    - expo-dev-menu/Vendored
-    - ExpoModulesCore
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-  - expo-dev-menu/ReactNativeCompatibles (4.5.8):
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-  - expo-dev-menu/SafeAreaView (4.5.8):
-    - ExpoModulesCore
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
-  - expo-dev-menu/Vendored (4.5.8):
-    - expo-dev-menu/SafeAreaView
-    - glog
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
   - ExpoAdapterGoogleSignIn (11.0.1):
     - ExpoModulesCore
     - GoogleSignIn (~> 7.0)
@@ -1361,7 +1291,6 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-  - EXUpdatesInterface (0.15.3)
   - FBLazyVector (0.73.6)
   - FBReactNativeSpec (0.73.6):
     - RCT-Folly (= 2022.05.16.00)
@@ -2454,7 +2383,7 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-  - react-native-safe-area-context (4.14.1):
+  - react-native-safe-area-context (4.8.2):
     - React-Core
   - react-native-webview (13.6.4):
     - glog
@@ -2686,13 +2615,7 @@ DEPENDENCIES:
   - EXAV (from `../node_modules/expo-av/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXFont (from `../node_modules/expo-font/ios`)
-  - EXJSONUtils (from `../node_modules/expo-json-utils/ios`)
-  - EXManifests (from `../node_modules/expo-manifests/ios`)
   - Expo (from `../node_modules/expo`)
-  - expo-dev-client (from `../node_modules/expo-dev-client/ios`)
-  - expo-dev-launcher (from `../node_modules/expo-dev-launcher`)
-  - expo-dev-menu (from `../node_modules/expo-dev-menu`)
-  - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
   - "ExpoAdapterGoogleSignIn (from `../node_modules/@react-native-google-signin/google-signin/expo/ios`)"
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
@@ -2705,7 +2628,6 @@ DEPENDENCIES:
   - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
   - EXSplashScreen (from `../node_modules/expo-splash-screen/ios`)
-  - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
@@ -2820,20 +2742,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-constants/ios"
   EXFont:
     :path: "../node_modules/expo-font/ios"
-  EXJSONUtils:
-    :path: "../node_modules/expo-json-utils/ios"
-  EXManifests:
-    :path: "../node_modules/expo-manifests/ios"
   Expo:
     :path: "../node_modules/expo"
-  expo-dev-client:
-    :path: "../node_modules/expo-dev-client/ios"
-  expo-dev-launcher:
-    :path: "../node_modules/expo-dev-launcher"
-  expo-dev-menu:
-    :path: "../node_modules/expo-dev-menu"
-  expo-dev-menu-interface:
-    :path: "../node_modules/expo-dev-menu-interface/ios"
   ExpoAdapterGoogleSignIn:
     :path: "../node_modules/@react-native-google-signin/google-signin/expo/ios"
   ExpoBlur:
@@ -2858,8 +2768,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-web-browser/ios"
   EXSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
-  EXUpdatesInterface:
-    :path: "../node_modules/expo-updates-interface/ios"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   FBReactNativeSpec:
@@ -2992,13 +2900,7 @@ SPEC CHECKSUMS:
   EXAV: e4f6137431ddc4cb025895046bfefa9612025c35
   EXConstants: a5f6276e565d98f9eb4280f81241fc342d641590
   EXFont: f20669cb266ef48b004f1eb1f2b20db96cd1df9f
-  EXJSONUtils: 5c42959e87be238b045ef37cc5268b16a6c0ad4a
-  EXManifests: 5e8c29f36c716af768a4ea47ec05e1b89ab93091
   Expo: 7b9976a9b2be116a701b233d6655b229a3c9316e
-  expo-dev-client: f22fdebdb8760bc22f660b7c0cb1dd58d80005c0
-  expo-dev-launcher: 11c184a2dca65f9bd6dc575a73a554b7be589d1d
-  expo-dev-menu: 68ea53d923996e27b20ce02b51cc820fc2327a83
-  expo-dev-menu-interface: 7ba029c9d1a82ac22b9b584c00514860b060553e
   ExpoAdapterGoogleSignIn: 8b749750f4b43e884a89d5c5c8a64ae21854e84d
   ExpoBlur: e832d874bd94afc0645daddbd3162ec1ce172080
   ExpoFileSystem: 74cc0fae916f9f044248433971dcfc8c3befd057
@@ -3011,7 +2913,6 @@ SPEC CHECKSUMS:
   ExpoSystemUI: 735278045c1a28de0018a300bb5abb3f9090652b
   ExpoWebBrowser: e31c97230ea93b51a2a74c6c2381b0d4fca5698c
   EXSplashScreen: 0fabdcf746d29e7f8b8969879cb09125cdd365d2
-  EXUpdatesInterface: 3e444e2093e25b7ca0999a7d8c16e8392dee70c3
   FBLazyVector: f64d1e2ea739b4d8f7e4740cde18089cd97fe864
   FBReactNativeSpec: 9f2b8b243131565335437dba74923a8d3015e780
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
@@ -3063,7 +2964,7 @@ SPEC CHECKSUMS:
   React-logger: 3eb80a977f0d9669468ef641a5e1fabbc50a09ec
   React-Mapbuffer: d81d930c1b7f4db284e1d721fe7fdc99230ca108
   react-native-agora: 7f850dd0a4d8d789ff9a62167b49506754f06a17
-  react-native-safe-area-context: 141eca0fd4e4191288dfc8b96a7c7e1c2983447a
+  react-native-safe-area-context: 0ee144a6170530ccc37a0fd9388e28d06f516a89
   react-native-webview: ad868affda04ff2b204de83546193bc0325a8280
   React-nativeconfig: e700ac3ec3d66329076bd2c2787a204411815d43
   React-NativeModulesApple: f7fa541118d195ac850ca2ea460f338152ced167

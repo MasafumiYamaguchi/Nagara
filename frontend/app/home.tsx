@@ -6,6 +6,7 @@ import {
 import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl } from "react-native";
 import Constants from 'expo-constants';
+import { initializeAuthObserver } from "../src/services/authService";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -30,6 +31,7 @@ const Home = ({ route, navigation }: Props) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [roomDesc, setRoomDesc] = useState("");
+  const [nop, setNop] = useState(1);
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +59,7 @@ const Home = ({ route, navigation }: Props) => {
 
   useEffect(() => {
     fetchRooms();
+    initializeAuthObserver();
   }, [route, navigation]);
 
   const filteredRooms = rooms.filter(
@@ -69,7 +72,7 @@ const Home = ({ route, navigation }: Props) => {
   // 部屋を選択したときの処理
   const handleRoomPress = (roomId: number) => {
     console.log(`Room ${roomId} selected`);
-    navigation.navigate("Room", { roomId, name: "サンプル部屋", nop: 5 });
+    navigation.navigate("Room", { roomId, name: `Room ${roomId}`, nop: 1 });
   };
 
   // 部屋作成キャンセル(特に何もしない)
@@ -86,13 +89,14 @@ const Home = ({ route, navigation }: Props) => {
       const res = await fetch(`${API_BASE_URL}/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: roomName.trim(), description: roomDesc.trim(), nop: 1 }),
+        body: JSON.stringify({ name: roomName.trim(), description: roomDesc.trim(), nop: nop }),
       });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`POST /rooms failed: ${res.status} ${res.statusText} ${text}`);
       }
       await fetchRooms();
+      navigation.navigate("Room", { roomId: (await res.json()).id, name: roomName.trim(), nop: nop });
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "作成に失敗しました");

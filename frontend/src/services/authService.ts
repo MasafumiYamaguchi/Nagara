@@ -1,68 +1,76 @@
-import auth from '@react-native-firebase/auth';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import firestore from '@react-native-firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
 
-// アプリインスタンスを取得
+// アプリインスタンスを取得 (モジュール式)
 const app = getApp();
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Google Sign-Inの設定
 GoogleSignin.configure({
-  webClientId: '890979401267-19vnobecq615sns2km9gebfdguhs7p2c.apps.googleusercontent.com', // 環境変数に変更！！！
+  webClientId: '890979401267-19vnobecq615sns2km9gebfdguhs7p2c.apps.googleusercontent.com', // 環境変数に置き換えた方がいい
   offlineAccess: true,
   hostedDomain: '', // オプション
   forceCodeForRefreshToken: true, // オプション
 });
 
-// 認証状態の変更を監視し、Zustandストアを更新
+// 認証状態の変更を監視し、Zustandストアを更新（モジュール式 onAuthStateChanged を使用）
 export function initializeAuthObserver() {
+  // useAuthStore を遅延読み込みして循環参照対策
+  const { useAuthStore } = require('../store/authStore');
   const { setUser, setInitializing } = useAuthStore.getState();
-  // appを明示的に渡す
-  return auth(app).onAuthStateChanged(async (user) => {
+
+  return onAuthStateChanged(auth, async (user) => {
+    // サインアウト時(user === null)は早期リターンしてFirestore操作を避ける
+    if (!user) {
+      setUser(null);
+      if (useAuthStore.getState().isInitializing) {
+        setInitializing(false);
+      }
+      return;
+    }
+
     setUser(user);
     if (useAuthStore.getState().isInitializing) {
       setInitializing(false);
     }
-    var userDoc = await firestore().collection('users').doc(user?.uid).get();
-    if (!userDoc.exists) {
-      // ユーザードキュメントが存在しない場合、新規作成
-      await firestore().collection('users').doc(user?.uid).set({
-        uid: user?.uid,
-        email: user?.email,
-        displayName: user?.displayName || '名無し',
-        createdAt: firestore.FieldValue.serverTimestamp(),
+
+    const userRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || '名無し',
+        createdAt: serverTimestamp(),
       });
     }
   });
 }
 
 export async function signUp(email: string, password: string) {
-  // appを明示的に渡す
-  return await auth(app).createUserWithEmailAndPassword(email, password);
+  return createUserWithEmailAndPassword(auth, email, password);
 }
 
 export async function signIn(email: string, password: string) {
-  // appを明示的に渡す
-  return await auth(app).signInWithEmailAndPassword(email, password);
+  return signInWithEmailAndPassword(auth, email, password);
 }
 
 export async function signOut() {
-  // appを明示的に渡す
-  return await auth(app).signOut();
+  return firebaseSignOut(auth);
 }
 
 export const signInWithGoogle = async () => {
   try {
     await GoogleSignin.hasPlayServices();
-    const  { idToken } = await GoogleSignin.signIn();
+    const { idToken } = await GoogleSignin.signIn();
 
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+    const googleCredential = GoogleAuthProvider.credential(idToken);
 
-    return auth().signInWithCredential(googleCredential);
+    return signInWithCredential(auth, googleCredential);
   } catch (error) {
     throw error;
   }
 }
-
-// インポートを一番下に移動して循環参照を防ぐ
-import { useAuthStore } from '../store/authStore';
