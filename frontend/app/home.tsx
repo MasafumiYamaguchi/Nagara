@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Box, Text, Input, ScrollView, VStack, HStack, Pressable, Badge, Divider,
-  Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView
+  Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView, useColorMode
 } from "native-base";
 import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl } from "react-native";
 import Constants from 'expo-constants';
 import { initializeAuthObserver } from "../src/services/authService";
+import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -32,6 +33,9 @@ const Home = ({ route, navigation }: Props) => {
   const [roomName, setRoomName] = useState("");
   const [roomDesc, setRoomDesc] = useState("");
   const [nop, setNop] = useState(1);
+
+  const { colorMode } = useContext(ColorModeContext);
+  const { colorMode: nativeBaseColorMode } = useColorMode();
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
@@ -111,36 +115,32 @@ const Home = ({ route, navigation }: Props) => {
   };
 
   return (
-    <Box flex={1} bg="gray.50" safeArea>
+    <Box flex={1} bg={nativeBaseColorMode === "dark" ? "gray.900" : "gray.50"} safeArea>
       <ScrollView flex={1} px={4} py={6} pb={20} refreshControl={
         <RefreshControl refreshing={loading} onRefresh={onRefresh} />
       }>
         {/* 検索欄 */}
         <VStack space={4} mb={6}>
-          <Heading size="lg" color="gray.800">
+          <Heading size="lg" color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}>
             部屋を探す
           </Heading>
           <Input
             placeholder="部屋名や内容で検索..."
             value={searchText}
             onChangeText={setSearchText}
-            bg="white"
-            borderColor="gray.300"
             borderRadius="lg"
             px={4}
             py={3}
             fontSize="md"
-            placeholderTextColor="gray.400"
             _focus={{
               borderColor: "blue.500",
-              bg: "white",
             }}
           />
         </VStack>
 
         {/* ステータス表示 */}
         {loading && (
-          <Text color="gray.500" mb={4}>
+          <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"} mb={4}>
             読み込み中...
           </Text>
         )}
@@ -152,7 +152,7 @@ const Home = ({ route, navigation }: Props) => {
 
         {/* 部屋一覧 */}
         <VStack space={4}>
-          <Text fontSize="lg" fontWeight="semibold" color="gray.800">
+          <Text fontSize="lg" fontWeight="semibold" color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}>
             参加可能な部屋 ({filteredRooms.length})
           </Text>
 
@@ -163,11 +163,11 @@ const Home = ({ route, navigation }: Props) => {
               _pressed={{ opacity: 0.8 }}
             >
               <Box
-                bg="white"
+                bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"}
                 borderRadius="lg"
                 p={4}
                 borderWidth={1}
-                borderColor="gray.300"
+                borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
                 shadow={2}
               >
                 <HStack
@@ -178,7 +178,7 @@ const Home = ({ route, navigation }: Props) => {
                   <Text
                     fontSize="lg"
                     fontWeight="bold"
-                    color="gray.900"
+                    color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
                     flex={1}
                     mr={3}
                     numberOfLines={2}
@@ -188,10 +188,10 @@ const Home = ({ route, navigation }: Props) => {
                   </Text>
                   <Badge colorScheme="blue" rounded="full" px={3} py={1} minW={16} flexShrink={0}>
                     <HStack alignItems="center" space={1}>
-                      <Text fontSize="xs" fontWeight="bold" color="black">
+                      <Text fontSize="xs" fontWeight="bold" color={nativeBaseColorMode === "dark" ? "gray.900" : "white"}>
                         {room.nop}
                       </Text>
-                      <Text fontSize="xs" fontWeight="bold" color="black">
+                      <Text fontSize="xs" fontWeight="bold" color={nativeBaseColorMode === "dark" ? "gray.900" : "white"}>
                         人
                       </Text>
                     </HStack>
@@ -199,7 +199,7 @@ const Home = ({ route, navigation }: Props) => {
                 </HStack>
 
                 <Text
-                  color="gray.700"
+                  color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"}
                   fontSize="sm"
                   lineHeight={30}
                   mt={2}
@@ -211,10 +211,10 @@ const Home = ({ route, navigation }: Props) => {
                   {room.description}
                 </Text>
 
-                <Divider my={4} />
+                <Divider my={4} bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"} />
 
                 <Center pt={1}>
-                  <Text color="blue.600" fontSize="sm" fontWeight="medium">
+                  <Text color={nativeBaseColorMode === "dark" ? "blue.400" : "blue.600"} fontSize="sm" fontWeight="medium">
                     参加する →
                   </Text>
                 </Center>
@@ -224,15 +224,15 @@ const Home = ({ route, navigation }: Props) => {
 
           {filteredRooms.length === 0 && (
             <Box
-              bg="white"
+              bg={nativeBaseColorMode === "dark" ? "gray.800" : "gray.50"}
               borderRadius="lg"
               p={8}
               borderWidth={2}
-              borderColor="gray.300"
+              borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.300"}
               borderStyle="dashed"
             >
               <Center>
-                <Text color="gray.500" textAlign="center" fontSize="md">
+                <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.500"} textAlign="center" fontSize="md">
                   検索条件に一致する部屋が見つかりません
                 </Text>
               </Center>
@@ -251,7 +251,7 @@ const Home = ({ route, navigation }: Props) => {
         bottom={6}
         right={6}
         rounded="full"
-        icon={<Icon as={AntDesign} name="plus" color="white" size="sm" />}
+        icon={<Icon bg="blue.600" as={AntDesign} name="plus" color="white" size="sm" />}
         onPress={() => setIsCreateOpen(true)}
       />
       {isCreateOpen && (
@@ -280,33 +280,29 @@ const Home = ({ route, navigation }: Props) => {
           >
             <Center flex={1} px={4}>
               <Box
-                bg="white"
+                bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"}
                 borderRadius="lg"
                 p={4}
                 shadow={6}
                 borderWidth={1}
-                borderColor="gray.200"
+                borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
                 w="100%"
                 maxW="95%"
               >
                 <VStack space={3}>
-                  <Heading size="md" color="gray.800">
+                  <Heading size="md" color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}>
                     新しい部屋を作成
                   </Heading>
                   <Input
                     placeholder="部屋名"
                     value={roomName}
                     onChangeText={setRoomName}
-                    bg="gray.50"
-                    borderColor="gray.300"
                   />
                   <TextArea
                     placeholder="部屋の説明"
                     value={roomDesc}
                     onChangeText={setRoomDesc}
                     totalLines={4}
-                    bg="gray.50"
-                    borderColor="gray.300"
                     autoCompleteType="off"
                   />
                   <HStack justifyContent="flex-end" space={2} pt={1}>

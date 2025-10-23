@@ -9,10 +9,10 @@ import {
   Divider,
   Pressable,
   ScrollView,
-  Button,
   useToast,
   Center,
   Badge,
+  useColorMode,
 } from "native-base";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../src/store/authStore";
@@ -32,6 +32,7 @@ type Props = BottomTabScreenProps<TabParamList, 'プロフィール'>;
 const Profile = ({ route, navigation }: Props) => {
   const { user } = useAuthStore();
   const toast = useToast();
+  const { colorMode: nativeBaseColorMode } = useColorMode();
 
   const handleSignOut = async () => {
     try {
@@ -62,32 +63,53 @@ const Profile = ({ route, navigation }: Props) => {
     <Pressable onPress={onPress}>
       {({ isPressed }) => (
         <Box
-          bg={isPressed ? "coolGray.100" : "white"}
+          bg={
+            isPressed
+              ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100")
+              : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
+          }
           p="4"
           borderRadius="md"
           mb="2"
+          borderWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
         >
           <HStack space={3} alignItems="center">
             <Box
-              bg="coolGray.200"
+              bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.100"}
               p="2"
               borderRadius="full"
               alignItems="center"
               justifyContent="center"
             >
-              <Ionicons name={icon as any} size={20} color="#4A5568" />
+              <Ionicons
+                name={icon as any}
+                size={20}
+                color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"}
+              />
             </Box>
             <VStack flex={1}>
-              <Text fontSize="md" fontWeight="medium">
+              <Text
+                fontSize="md"
+                fontWeight="medium"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+              >
                 {title}
               </Text>
               {subtitle && (
-                <Text fontSize="sm" color="coolGray.500">
+                <Text
+                  fontSize="sm"
+                  color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.500"}
+                >
                   {subtitle}
                 </Text>
               )}
             </VStack>
-            <Ionicons name="chevron-forward" size={16} color="#A0AEC0" />
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={nativeBaseColorMode === "dark" ? "#4B5563" : "#CBD5E0"}
+            />
           </HStack>
         </Box>
       )}
@@ -95,10 +117,16 @@ const Profile = ({ route, navigation }: Props) => {
   );
 
   return (
-    <ScrollView bg="coolGray.50" flex={1}>
+    <ScrollView bg={nativeBaseColorMode === "dark" ? "gray.900" : "gray.50"} flex={1}>
       <Box safeArea>
         {/* プロフィールヘッダー */}
-        <Box bg="white" p="6" mb="4">
+        <Box
+          bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"}
+          p="6"
+          mb="4"
+          borderBottomWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
+        >
           <Center>
             <Avatar
               size="xl"
@@ -106,42 +134,83 @@ const Profile = ({ route, navigation }: Props) => {
                 uri: user?.photoURL || undefined,
               }}
               mb="4"
+              bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
             >
               {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}
             </Avatar>
-            <Heading size="md" mb="1">
+            <Heading
+              size="md"
+              mb="1"
+              color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+            >
               {user?.displayName || "ユーザー名"}
             </Heading>
-            <Text color="coolGray.600" fontSize="sm" mb="2">
+            <Text
+              color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}
+              fontSize="sm"
+              mb="2"
+            >
               {user?.email}
             </Text>
             {user?.emailVerified && (
-              <Badge colorScheme="success" variant="solid">
-                メール認証済み
-              </Badge>
+              <Box
+                bg={nativeBaseColorMode === "dark" ? "green.600" : "green.500"}
+                borderRadius="full"
+                px="3"
+                py="1"
+                alignSelf="center"
+              >
+                <Text color="white" fontWeight="semibold" bg="transparent">
+                  メール認証済み
+                </Text>
+              </Box>
             )}
           </Center>
         </Box>
 
         {/* アカウント情報セクション */}
-        <Box bg="white" mx="4" borderRadius="md" p="4" mb="4">
-          <Heading size="sm" mb="3" color="coolGray.700">
+        <Box
+          bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"}
+          mx="4"
+          borderRadius="md"
+          p="4"
+          mb="4"
+          borderWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
+        >
+          <Heading
+            size="sm"
+            mb="3"
+            color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"}
+          >
             アカウント情報
           </Heading>
           
           <VStack space={3}>
-            <HStack justifyContent="space-between">
-              <Text color="coolGray.600">ユーザーID</Text>
-              <Text fontSize="sm" color="coolGray.800" maxW="200" numberOfLines={1}>
+            <HStack justifyContent="space-between" alignItems="center">
+              <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
+                ユーザーID
+              </Text>
+              <Text
+                fontSize="sm"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.800"}
+                maxW="200"
+                numberOfLines={1}
+              >
                 {user?.uid}
               </Text>
             </HStack>
             
-            <Divider />
+            <Divider bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"} />
             
-            <HStack justifyContent="space-between">
-              <Text color="coolGray.600">登録日</Text>
-              <Text fontSize="sm" color="coolGray.800">
+            <HStack justifyContent="space-between" alignItems="center">
+              <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
+                登録日
+              </Text>
+              <Text
+                fontSize="sm"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.800"}
+              >
                 {user?.metadata?.creationTime 
                   ? new Date(user.metadata.creationTime).toLocaleDateString('ja-JP')
                   : "不明"
@@ -149,11 +218,16 @@ const Profile = ({ route, navigation }: Props) => {
               </Text>
             </HStack>
             
-            <Divider />
+            <Divider bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"} />
             
-            <HStack justifyContent="space-between">
-              <Text color="coolGray.600">最終ログイン</Text>
-              <Text fontSize="sm" color="coolGray.800">
+            <HStack justifyContent="space-between" alignItems="center">
+              <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
+                最終ログイン
+              </Text>
+              <Text
+                fontSize="sm"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.800"}
+              >
                 {user?.metadata?.lastSignInTime 
                   ? new Date(user.metadata.lastSignInTime).toLocaleDateString('ja-JP')
                   : "不明"
@@ -165,7 +239,12 @@ const Profile = ({ route, navigation }: Props) => {
 
         {/* 設定メニューセクション */}
         <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color="coolGray.700" px="2">
+          <Heading
+            size="sm"
+            mb="3"
+            color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"}
+            px="2"
+          >
             設定
           </Heading>
           

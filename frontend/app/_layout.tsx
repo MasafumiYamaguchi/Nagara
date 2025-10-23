@@ -1,11 +1,12 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { NativeBaseProvider } from "native-base";
+import { NativeBaseProvider, useColorMode } from "native-base";
 import { initializeAuthObserver } from "../src/services/authService";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../src/store/authStore";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { createNavigationContainerRef } from '@react-navigation/native';
+import { extendTheme } from "native-base";
 
 import IndexScreen from "./index";
 import LoginScreen from "./login";
@@ -15,13 +16,143 @@ import BottomTabNavigator from "./tab/bottomtabnavigator"; // BottomTabNavigator
 import RoomScreen from "./room";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-// ナビゲーション参照を作成
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+// ダークモード状態を管理するコンテキスト作成
+import { createContext } from "react";
+import { color } from "native-base/lib/typescript/theme/styled-system";
+import { ColorModeContext } from "./hooks/ColorModeContext ";
+
+const ColorModeBridge: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { colorMode, toggleColorMode } = useColorMode();
+
+  const value = React.useMemo(
+    () => ({ colorMode, toggleColorMode }),
+    [colorMode, toggleColorMode],
+  );
+
+  return (
+    <ColorModeContext.Provider value={value as any}>
+      {children}
+    </ColorModeContext.Provider>
+  );
+};
+
+const theme = extendTheme({
+  config: {
+    useSystemColorMode: false,
+    initialColorMode: 'light',
+  },
+  colors: {
+    primary: {
+      600: '#3B82F6',
+      700: '#1D4ED8',
+    },
+    success: {
+      500: '#10B981',
+    },
+    danger: {
+      500: '#EF4444',
+    },
+    warning: {
+      500: '#F59E0B',
+    },
+    gray: {
+      100: '#F3F4F6',
+      300: '#D1D5DB',
+      400: '#9CA3AF',
+      600: '#4B5563',
+      700: '#374151',
+      800: '#1F2937',
+      900: '#111827',
+    },
+    blue: {
+      400: '#60A5FA',
+      500: '#3B82F6',
+      600: '#2563EB',
+    },
+  },
+  components: {
+    Heading: {
+      baseStyle: (props: any) => {
+        return {
+          _light: { color: 'gray.900' },
+          _dark: { color: 'gray.100' },
+        };
+      },
+    },
+    Box: {
+      baseStyle: (props: any) => {
+        return {
+          _light: { bg: 'white' },
+          _dark: { bg: 'gray.800' },
+        };
+      },
+    },
+    Text: {
+      baseStyle: (props: any) => {
+        return {
+          _light: { color: 'gray.900' },
+          _dark: { color: 'gray.100' },
+        };
+      },
+    },
+    Input: {
+      baseStyle: (props: any) => {
+        return {
+          _light: { 
+            bg: 'white', 
+            borderColor: 'gray.300', 
+            color: 'gray.900',
+            placeholderTextColor: 'gray.400',
+            _focus: { borderColor: 'blue.500' },
+          },
+          _dark: { 
+            bg: 'gray.700', 
+            borderColor: 'gray.600', 
+            color: 'gray.100',
+            placeholderTextColor: 'gray.400',
+            _focus: { borderColor: 'blue.400' },
+          },
+        };
+      },
+    },
+    Button: {
+      baseStyle: (props: any) => {
+        return {
+          _light: { bg: 'blue.600', _pressed: { bg: 'blue.700' } },
+          _dark: { bg: 'blue.500', _pressed: { bg: 'blue.600' } },
+        };
+      },
+    },
+    TextArea: {
+      baseStyle: (props: any) => {
+        return {
+          _light: { 
+            bg: 'white', 
+            borderColor: 'gray.300', 
+            color: 'gray.900',
+            placeholderTextColor: 'gray.400',
+            _focus: { borderColor: 'blue.500' },
+          },
+          _dark: { 
+            bg: 'gray.700', 
+            borderColor: 'gray.600', 
+            color: 'gray.100',
+            placeholderTextColor: 'gray.400',
+            _focus: { borderColor: 'blue.400' },
+          },
+        };
+      },
+    },
+  },
+});
 
 export default function RootLayout() {
   const { user, isInitializing } = useAuthStore();
-  
+  const systemColorScheme = useColorScheme();
+  const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
+
   // 認証状態の監視
   useEffect(() => {
     const unsubscribe = initializeAuthObserver();
@@ -30,15 +161,16 @@ export default function RootLayout() {
 
   // ユーザー状態の変更を監視して画面を切り替え
   useEffect(() => {
-    // ナビゲーションが準備完了していて、かつユーザーがログインしている場合
     if (navigationRef.isReady() && user) {
-      // ホーム画面に遷移
       navigationRef.navigate("Main");
     } else if (navigationRef.isReady() && !user && !isInitializing) {
-      // 未ログインで初期化が完了している場合はIndex画面に遷移
       navigationRef.navigate("Index");
     }
   }, [user, isInitializing]);
+
+  const toggleColorMode = () => {
+    setColorMode(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   // 認証状態が初期化中の場合はローディング画面を表示
   if (isInitializing) {
@@ -52,21 +184,25 @@ export default function RootLayout() {
   }
 
   return (
-    <NativeBaseProvider>
-      <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator
-          initialRouteName={user ? "Main" : "Index"}
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Index" component={IndexScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Main" component={BottomTabNavigator} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Room" component={RoomScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </NativeBaseProvider>
+    <ColorModeContext.Provider value={{ colorMode, toggleColorMode }}>
+      <NativeBaseProvider theme={theme} >
+        <ColorModeBridge>
+          <NavigationContainer ref={navigationRef}>
+            <Stack.Navigator
+              initialRouteName={user ? "Main" : "Index"}
+              screenOptions={{
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="Index" component={IndexScreen} />
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Main" component={BottomTabNavigator} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+              <Stack.Screen name="Room" component={RoomScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ColorModeBridge>
+      </NativeBaseProvider>
+    </ColorModeContext.Provider>
   );
 }

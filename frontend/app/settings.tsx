@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   Box,
   VStack,
@@ -13,11 +13,13 @@ import {
   Divider,
   Center,
   Icon,
+  useColorMode,
 } from "native-base";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../src/store/authStore";
 import { signOut } from "../src/services/authService";
 import { Alert } from "react-native";
+import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -38,6 +40,8 @@ const Settings = ({ route, navigation }: Props) => {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const { colorMode, toggleColorMode } = useContext(ColorModeContext);
+  const { colorMode: nativeBaseColorMode } = useColorMode();
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -70,54 +74,6 @@ const Settings = ({ route, navigation }: Props) => {
     );
   };
 
-  const SettingsItem = ({ 
-    icon, 
-    title, 
-    subtitle, 
-    onPress,
-    rightElement,
-  }: { 
-    icon: string; 
-    title: string; 
-    subtitle?: string; 
-    onPress?: () => void;
-    rightElement?: React.ReactNode;
-  }) => (
-    <Pressable onPress={onPress}>
-      {({ isPressed }) => (
-        <Box
-          bg={isPressed ? "coolGray.100" : "white"}
-          p="4"
-          borderRadius="md"
-          mb="1"
-        >
-          <HStack space={3} alignItems="center">
-            <Box
-              bg="coolGray.200"
-              p="2"
-              borderRadius="full"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Ionicons name={icon as any} size={20} color="#4A5568" />
-            </Box>
-            <VStack flex={1}>
-              <Text fontSize="md" fontWeight="medium">
-                {title}
-              </Text>
-              {subtitle && (
-                <Text fontSize="sm" color="coolGray.500">
-                  {subtitle}
-                </Text>
-              )}
-            </VStack>
-            {rightElement || <Ionicons name="chevron-forward" size={16} color="#A0AEC0" />}
-          </HStack>
-        </Box>
-      )}
-    </Pressable>
-  );
-
   const SwitchItem = ({ 
     icon, 
     title, 
@@ -131,23 +87,39 @@ const Settings = ({ route, navigation }: Props) => {
     value: boolean;
     onValueChange: (value: boolean) => void;
   }) => (
-    <Box bg="white" p="4" borderRadius="md" mb="1">
+    <Box 
+      bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"} 
+      p="1" 
+      borderRadius="md" 
+      mb="1"
+    >
       <HStack space={3} alignItems="center">
         <Box
-          bg="coolGray.200"
+          bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.100"}
           p="2"
           borderRadius="full"
           alignItems="center"
           justifyContent="center"
         >
-          <Ionicons name={icon as any} size={20} color="#4A5568" />
+          <Ionicons 
+            name={icon as any} 
+            size={20} 
+            color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"} 
+          />
         </Box>
         <VStack flex={1}>
-          <Text fontSize="md" fontWeight="medium">
+          <Text 
+            fontSize="md" 
+            fontWeight="medium" 
+            color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+          >
             {title}
           </Text>
           {subtitle && (
-            <Text fontSize="sm" color="coolGray.500">
+            <Text 
+              fontSize="sm" 
+              color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.500"}
+            >
               {subtitle}
             </Text>
           )}
@@ -161,16 +133,89 @@ const Settings = ({ route, navigation }: Props) => {
     </Box>
   );
 
+  const SettingsItem = ({ 
+    icon, 
+    title, 
+    subtitle, 
+    onPress,
+    rightElement,
+  }: { 
+    icon: string; 
+    title: string; 
+    subtitle?: string; 
+    onPress?: () => void;
+    rightElement?: React.ReactNode;
+  }) => {
+    const [pressed, setPressed] = useState(false);
+
+    return (
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+      >
+        <Box
+          bg={pressed 
+            ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100") 
+            : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
+          }
+          p="1"
+          borderRadius="md"
+          mb="1"
+        >
+          <HStack space={3} alignItems="center">
+            <Box
+              bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.100"}
+              p="2"
+              borderRadius="full"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Ionicons 
+                name={icon as any} 
+                size={20} 
+                color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"} 
+              />
+            </Box>
+            <VStack flex={1}>
+              <Text 
+                fontSize="md" 
+                fontWeight="medium" 
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+              >
+                {title}
+              </Text>
+              {subtitle && (
+                <Text 
+                  fontSize="sm" 
+                  color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.500"}
+                >
+                  {subtitle}
+                </Text>
+              )}
+            </VStack>
+            {rightElement || <Icon
+              as={Ionicons}
+              name="chevron-forward" 
+              size={16} 
+              color={nativeBaseColorMode === "dark" ? "gray.600" : "gray.300"} 
+            />}
+          </HStack>
+        </Box>
+      </Pressable>
+    );
+  };
+
   return (
-    <ScrollView bg="coolGray.50" flex={1}>
-      <Box safeArea>
+    <ScrollView bg={nativeBaseColorMode === "dark" ? "gray.900" : "gray.50"} flex={1}>
+      <Box>
         {/* ヘッダー */}
-        <Box bg="white" p="6" mb="4">
+        <Box p="6" mb="4">
           <Center>
-            <Heading size="lg" color="coolGray.800">
+            <Heading size="lg" color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}>
               設定
             </Heading>
-            <Text color="coolGray.600" fontSize="sm" mt="1">
+            <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"} fontSize="sm" mt="1">
               アプリの設定を管理
             </Text>
           </Center>
@@ -178,7 +223,7 @@ const Settings = ({ route, navigation }: Props) => {
 
         {/* アカウント設定 */}
         <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color="coolGray.700" px="2">
+          <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
             アカウント
           </Heading>
           
@@ -206,7 +251,7 @@ const Settings = ({ route, navigation }: Props) => {
 
         {/* 通知設定 */}
         <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color="coolGray.700" px="2">
+          <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
             通知
           </Heading>
           
@@ -229,7 +274,7 @@ const Settings = ({ route, navigation }: Props) => {
 
         {/* アプリ設定 */}
         <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color="coolGray.700" px="2">
+          <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
             アプリ設定
           </Heading>
           
@@ -237,8 +282,10 @@ const Settings = ({ route, navigation }: Props) => {
             icon="moon-outline"
             title="ダークモード"
             subtitle="暗いテーマを使用"
-            value={darkMode}
-            onValueChange={setDarkMode}
+            value={colorMode === 'dark'}
+            onValueChange={() => {
+              toggleColorMode();
+            }}
           />
           
           <SettingsItem
@@ -258,7 +305,7 @@ const Settings = ({ route, navigation }: Props) => {
 
         {/* サポート */}
         <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color="coolGray.700" px="2">
+          <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
             サポート
           </Heading>
           
@@ -292,8 +339,8 @@ const Settings = ({ route, navigation }: Props) => {
 
         {/* ユーザー情報（デバッグ用） */}
         {user && (
-          <Box mx="4" mb="6" bg="coolGray.100" p="3" borderRadius="md">
-            <Text fontSize="xs" color="coolGray.600">
+          <Box mx="4" mb="6" bg={nativeBaseColorMode === "dark" ? "gray.800" : "gray.100"} p="3" borderRadius="md">
+            <Text fontSize="xs" color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
               ログイン中: {user.email}
             </Text>
           </Box>
@@ -302,5 +349,6 @@ const Settings = ({ route, navigation }: Props) => {
     </ScrollView>
   );
 };
+
 
 export default Settings;
