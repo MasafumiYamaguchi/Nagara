@@ -17,7 +17,7 @@ type TabParamList = {
   ホーム: undefined;
   プロフィール: undefined;
   設定: undefined;
-  Room: { roomId: number; name: string; nop: number };
+  Room: { roomId: number; name: string; nop: number; password: string };
 };
 
 type Props = BottomTabScreenProps<TabParamList, 'ホーム'>;
@@ -88,7 +88,25 @@ const Home = ({ route, navigation }: Props) => {
         ]);
         return;
       }
-    navigation.navigate("Room", { roomId, name: `Room ${roomId}`, nop: 1 });
+      if ((await res.json()).password) {
+        Alert.alert('パスワードが必要です', 'この部屋に参加するにはパスワードが必要です。', [
+          {
+            text: 'OK',
+            onPress: () => console.log('OK Pressed'),
+          },
+        ]);
+        return;
+      }
+      if ((await res.json()).password !== password) {
+        Alert.alert('パスワードが違います', '入力したパスワードが正しくありません。', [
+          {
+            text: 'OK',
+            onPress: () => console.log('OK Pressed'),
+          },
+        ]);
+        return;
+      }
+    navigation.navigate("Room", { roomId, name: `Room ${roomId}`, nop: nop, password: password });
   };
 
   // 部屋作成キャンセル(特に何もしない)
@@ -96,6 +114,8 @@ const Home = ({ route, navigation }: Props) => {
     setIsCreateOpen(false);
     setRoomName("");
     setRoomDesc("");
+    setNop(1);
+    setPassword("");
   };
 
   // 部屋を作成する処理
@@ -105,14 +125,14 @@ const Home = ({ route, navigation }: Props) => {
       const res = await fetch(`${API_BASE_URL}/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: roomName.trim(), description: roomDesc.trim(), nop: nop }),
+        body: JSON.stringify({ name: roomName.trim(), description: roomDesc.trim(), nop: nop, password: password }),
       });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`POST /rooms failed: ${res.status} ${res.statusText} ${text}`);
       }
       await fetchRooms();
-      navigation.navigate("Room", { roomId: (await res.json()).id, name: roomName.trim(), nop: nop });
+      navigation.navigate("Room", { roomId: (await res.json()).id, name: roomName.trim(), nop: nop, password: password });
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "作成に失敗しました");

@@ -3,5 +3,5 @@ export type RootStackParamList = {
   Login: undefined;
   Main: undefined; // BottomTabNavigatorを指す
   Register: undefined;
-  Room: { roomId: string, name: string, nop: number }; // ルームIDをパラメータとして受け取る
+  Room: { roomId: string, name: string, nop: number, password: string }; // ルームIDをパラメータとして受け取る
 };

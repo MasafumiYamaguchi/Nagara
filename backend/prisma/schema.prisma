@@ -14,12 +14,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model room {
-  id Int @id @default(autoincrement())
-  name String
-  description String
-  nop Int
-  password String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Room {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String   @default("")
+  nop         Int
+  password    String   @default("")  // 追加
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
