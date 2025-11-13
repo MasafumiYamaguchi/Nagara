@@ -43,12 +43,12 @@ app.get('/db-health', async (req, res) => {
 
 app.post('/rooms', async (req, res) => {
   try {
-    const { name, description, nop } = req.body;
+    const { name, description, nop, password } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Room name is required' });
     }
     const newRoom = await prisma.room.create({
-      data: { name, description: description || '', nop },
+      data: { name, description: description || '', nop, password: password || '' },
     });
     res.status(201).json(newRoom);
   } catch (e) {
