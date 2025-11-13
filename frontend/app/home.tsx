@@ -4,13 +4,14 @@ import {
   Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView, useColorMode
 } from "native-base";
 import { AntDesign } from "@expo/vector-icons";
-import { Platform, RefreshControl } from "react-native";
+import { Platform, RefreshControl, Alert } from "react-native";
 import Constants from 'expo-constants';
 import { initializeAuthObserver } from "../src/services/authService";
 import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { opacity } from "react-native-reanimated/lib/typescript/reanimated2/Colors";
 
 type TabParamList = {
   ホーム: undefined;
@@ -33,6 +34,7 @@ const Home = ({ route, navigation }: Props) => {
   const [roomName, setRoomName] = useState("");
   const [roomDesc, setRoomDesc] = useState("");
   const [nop, setNop] = useState(1);
+  const [password, setPassword] = useState("");
 
   const { colorMode } = useContext(ColorModeContext);
   const { colorMode: nativeBaseColorMode } = useColorMode();
@@ -74,8 +76,18 @@ const Home = ({ route, navigation }: Props) => {
 
 
   // 部屋を選択したときの処理
-  const handleRoomPress = (roomId: number) => {
+  const handleRoomPress = async (roomId: number) => {
     console.log(`Room ${roomId} selected`);
+      const res = await fetch(`${API_BASE_URL}/rooms/${roomId}`);
+      if (!res.ok) {
+        Alert.alert('参加に失敗しました', `エラーコード: ${res.status}`, [
+          {
+            text: 'OK',
+            onPress: () => console.log('OK Pressed'),
+          },
+        ]);
+        return;
+      }
     navigation.navigate("Room", { roomId, name: `Room ${roomId}`, nop: 1 });
   };
 
@@ -277,6 +289,7 @@ const Home = ({ route, navigation }: Props) => {
               right: 0,
               zIndex: 11,
             }}
+            bgColor={"transparent"}
           >
             <Center flex={1} px={4}>
               <Box
@@ -289,30 +302,68 @@ const Home = ({ route, navigation }: Props) => {
                 w="100%"
                 maxW="95%"
               >
-                <VStack space={3}>
+                <VStack space={4}>
                   <Heading size="md" color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}>
-                    新しい部屋を作成
+                  新しい部屋を作成
                   </Heading>
                   <Input
-                    placeholder="部屋名"
-                    value={roomName}
-                    onChangeText={setRoomName}
+                  placeholder="部屋名を入力してください"
+                  value={roomName}
+                  onChangeText={setRoomName}
+                  borderRadius="md"
+                  px={4}
+                  py={3}
+                  fontSize="md"
+                  _focus={{
+                    borderColor: "blue.500",
+                  }}
                   />
                   <TextArea
-                    placeholder="部屋の説明"
-                    value={roomDesc}
-                    onChangeText={setRoomDesc}
-                    totalLines={4}
-                    autoCompleteType="off"
+                  placeholder="部屋の説明を入力してください"
+                  value={roomDesc}
+                  onChangeText={setRoomDesc}
+                  totalLines={4}
+                  borderRadius="md"
+                  px={4}
+                  py={3}
+                  fontSize="md"
+                  _focus={{
+                    borderColor: "blue.500",
+                  }}
+                  autoCompleteType={false}
                   />
-                  <HStack justifyContent="flex-end" space={2} pt={1}>
-                    <Button variant="ghost" colorScheme="coolGray" onPress={handleCancelCreate}>
-                      キャンセル
-                    </Button>
-                    <Button colorScheme="blue" isDisabled={!roomName.trim()} onPress={handleCreateRoom}>
-                      作成
-                    </Button>
+                  
+                  <HStack alignItems="center" space={3}>
+                    <Input
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      borderRadius="md"
+                      px={4}
+                      py={3}
+                      fontSize="md"
+                      _focus={{
+                        borderColor: "blue.500",
+                      }}
+                      placeholder="パスワード（任意）"
+                    />
                   </HStack>
+                  <HStack mt={4} justifyContent="flex-end" space={3}>
+                  <Button
+                    variant="outline"
+                    onPress={handleCancelCreate}
+                  >
+                    キャンセル
+                  </Button>
+
+                  <Button
+                    variant="solid"
+                    onPress={handleCreateRoom}
+                    isDisabled={!roomName.trim()}
+                  >
+                    作成
+                  </Button>
+                </HStack>
                 </VStack>
               </Box>
             </Center>

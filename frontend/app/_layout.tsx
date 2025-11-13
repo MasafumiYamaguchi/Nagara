@@ -81,17 +81,10 @@ const theme = extendTheme({
         };
       },
     },
-    Box: {
-      baseStyle: (props: any) => {
-        return {
-          _light: { bg: 'white' },
-          _dark: { bg: 'gray.800' },
-        };
-      },
-    },
     Text: {
       baseStyle: (props: any) => {
         return {
+          bg: 'transparent',               // ← 追加：常に背景は透明
           _light: { color: 'gray.900' },
           _dark: { color: 'gray.100' },
         };
@@ -118,11 +111,91 @@ const theme = extendTheme({
       },
     },
     Button: {
-      baseStyle: (props: any) => {
-        return {
-          _light: { bg: 'blue.600', _pressed: { bg: 'blue.700' } },
-          _dark: { bg: 'blue.500', _pressed: { bg: 'blue.600' } },
-        };
+      baseStyle: {
+        borderRadius: 'md',
+      },
+      defaultProps: {
+        variant: 'solid',
+        colorScheme: 'blue',
+        size: 'md',
+      },
+      sizes: {
+        md: {
+          px: 4,
+          py: 3,
+        },
+      },
+      variants: {
+        solid: {
+          _light: {
+            bg: 'blue.600',
+            _text: {
+              color: 'white',
+              fontWeight: 'semibold',
+            },
+            _pressed: {
+              bg: 'blue.700',
+            },
+            _disabled: {
+              bg: 'gray.300',
+              _text: { color: 'gray.500' },
+            },
+          },
+          _dark: {
+            bg: 'blue.600',
+            _text: {
+              color: 'white',
+              fontWeight: 'semibold',
+            },
+            _pressed: {
+              bg: 'blue.700',
+            },
+            _disabled: {
+              bg: 'gray.700',
+              _text: { color: 'gray.500' },
+            },
+          },
+        },
+        outline: {
+          _light: {
+            bg: 'transparent',
+            borderWidth: 1,
+            borderColor: 'gray.400',
+            _text: { color: 'gray.800', fontWeight: 'semibold' },
+            _pressed: {
+              bg: 'gray.100',
+              borderColor: 'gray.500',
+            },
+          },
+          _dark: {
+            bg: 'transparent',
+            borderWidth: 1,
+            borderColor: 'gray.500',
+            _text: { color: 'gray.100', fontWeight: 'semibold' },
+            _pressed: {
+              bg: 'gray.700',
+              borderColor: 'gray.400',
+            },
+          },
+        },
+        ghost: {
+          _light: { 
+            bg: 'transparent', 
+            _text: { color: 'gray.700', bg: 'transparent' }, 
+            _pressed: { 
+              bg: 'gray.100',
+              _text: { bg: 'transparent' },
+            } 
+          },
+          _dark: { 
+            bg: 'transparent', 
+            _text: { color: 'gray.300', bg: 'transparent' }, 
+            _pressed: { 
+              bg: 'gray.700',
+              _text: { bg: 'transparent' },
+            } 
+          },
+        },
       },
     },
     TextArea: {

@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Platform, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from './navigation/types';
 import {
@@ -16,8 +17,11 @@ import {
   AlertDialog,
   useDisclose,
   FlatList,
+  Fab,
+  PresenceTransition,     // 追加
+  Pressable,              // 追加
 } from 'native-base';
-import { Ionicons } from '@expo/vector-icons';
+import { AntDesign, Ionicons } from '@expo/vector-icons';
 import constants from 'expo-constants';
 import {
   createAgoraRtcEngine,
@@ -67,8 +71,20 @@ export default function RoomScreen({ navigation, route }: Props) {
   const localUserIdRef = useRef<string>('local');
   const agoraUserAccountRef = useRef<string | null>(null);
 
+  // リアクションボタン用
+  const [showReaction, setShowReaction] = useState(false);
+  // FAB の位置を一元化（トレーもそこ基準に出す）
+  const insets = useSafeAreaInsets();
+  const FAB_SIZE = 56; // NativeBaseのデフォルトFABサイズ想定
+  const REACTION_FAB_BOTTOM = 26 + insets.bottom;     // Homeインジケータを避ける
+  const REACTION_FAB_RIGHT = 4;
+
   // 追加: displayName キャッシュ（同じユーザーを何度も読まない）
   const nameCacheRef = useRef<Record<string, string>>({});
+  const reactionList = ['👍', '🎉', '😂', '😮', '😢', '🙏'];
+  // 追加: リアクションボタンの見た目サイズ
+  const REACTION_ITEM_SIZE = 36;
+  const REACTION_EMOJI_SIZE = 28;
 
   // アプリインスタンスを取得 
   const app = getApp();
@@ -579,13 +595,14 @@ export default function RoomScreen({ navigation, route }: Props) {
 
   return (
     <Box flex={1} bg={bgColor} safeArea>
+      {/* 本文 */}
       <Box bg={headerBg} px={4} py={3} shadow={2}>
         <HStack justifyContent="space-between" alignItems="center">
           <Text fontSize="xl" fontWeight="bold">
             通話ルーム
           </Text>
-          <Badge bg="primary.500" _text={{ color: 'white' }} rounded="full">
-            {participants.length}名参加中
+          <Badge bg="primary.500" _text={{ color: 'white' }} rounded="full" >
+            <Text fontSize="sm">参加者 {participants.length} 人</Text>
           </Badge>
         </HStack>
         {tokenLoading && <Text fontSize="xs" color="gray.500">トークン取得中...</Text>}
@@ -646,8 +663,10 @@ export default function RoomScreen({ navigation, route }: Props) {
           />
       </Box>
 
-      <Box bg={headerBg} p={4} shadow={2}>
+      {/* フッター操作列 */}
+      <Box bg={headerBg} p={4} shadow={2} position="relative">
         <HStack justifyContent="center" space={6}>
+          {/* ミュート/退出ボタン */}
           <VStack alignItems="center">
             <IconButton
               size="lg"
@@ -676,8 +695,94 @@ export default function RoomScreen({ navigation, route }: Props) {
               </Text>
           </VStack>
         </HStack>
+
+        {/* 透明ガラステイスト FAB */}
+        <Fab
+          position="absolute"
+          bottom={REACTION_FAB_BOTTOM}
+            right={REACTION_FAB_RIGHT}
+          bg={useColorModeValue('rgba(255,255,255,0.55)', 'rgba(250,250,250,0.18)')}
+          borderWidth={1}
+          borderColor={useColorModeValue('rgba(255,255,255,0.25)', 'rgba(255,255,255,0.18)')}
+          _pressed={{ bg: useColorModeValue('rgba(255,255,255,0.20)', 'rgba(0,0,0,0.35)') }}
+          shadow={4}            // やや弱め
+          icon={<Ionicons name="happy-outline" size={24} color={useColorModeValue('black', 'white')} />}
+          onPress={() => setShowReaction(v => !v)}
+        />
       </Box>
 
+      {/* リアクショントレー: フッターの外に絶対配置して layout 干渉させない */}
+      {showReaction && (
+        <>
+          {/* 全画面オーバーレイ (閉じる用) */}
+          <Pressable
+            position="absolute"
+            top={0} left={0} right={0} bottom={0}
+            onPress={() => setShowReaction(false)}
+            bg="transparent"
+            zIndex={40}
+          />
+          {/* ← PresenceTransition 自体が stretch しがちなので、絶対配置は外側の Box に持たせる */}
+          <Box
+            position="absolute"
+            right={REACTION_FAB_RIGHT}
+            bottom={REACTION_FAB_BOTTOM + FAB_SIZE + 26}
+            zIndex={50}
+            pointerEvents="box-none"
+            alignItems="flex-end"
+          >
+            <PresenceTransition
+              visible={showReaction}
+              initial={{ opacity: 0, translateY: 8 }}
+              animate={{
+                opacity: 1,
+                translateY: 0,
+                transition: { duration: 160 },
+              }}
+            >
+              <Box
+                alignSelf="flex-end"   // これで横幅が content に収まる
+                px={6}
+                py={3}
+                w="auto"
+                flexShrink={1}
+                bg={useColorModeValue('rgba(30,30,30,0.55)', 'rgba(250,250,250,0.18)')}
+                borderWidth={1}
+                borderColor={useColorModeValue('rgba(255,255,255,0.28)', 'rgba(255,255,255,0.25)')}
+                rounded="full"
+                shadow={0}              // 影で巨大化見えするの防止
+                pointerEvents="auto"
+              >
+                <HStack space={3} alignItems="center">
+                  {reactionList.map((emoji) => (
+                    <Pressable
+                      key={emoji}
+                      w={REACTION_ITEM_SIZE}
+                      h={REACTION_ITEM_SIZE}
+                      alignItems="center"
+                      justifyContent="center"
+                      rounded="full"
+                      _pressed={{ bg: useColorModeValue('white:alpha.20', 'black:alpha.30') }}
+                      hitSlop={8}
+                      onPress={() => {
+                        console.log('Reaction:', emoji);
+                        setShowReaction(false);
+                        // TODO: sendReaction(emoji)
+                      }}
+                    >
+                      <Text fontSize={REACTION_EMOJI_SIZE} lineHeight={REACTION_EMOJI_SIZE}>
+                        {emoji}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </HStack>
+              </Box>
+            </PresenceTransition>
+          </Box>
+        </>
+      )}
+
+      {/* 退出ダイアログ */}
       <AlertDialog leastDestructiveRef={cancelRef} isOpen={isOpen} onClose={onClose}>
         <AlertDialog.Content>
           {/* CloseButton 差し替え: NativeBase のやつが fill="" 投げて警告出るので自作 */}
