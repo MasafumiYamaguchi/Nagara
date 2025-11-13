@@ -165,11 +165,14 @@ export default function RoomScreen({ navigation, route }: Props) {
 
     // イベント登録
     engine.registerEventHandler({
-      onJoinChannelSuccess: (_connection, uid) => {
+      onJoinChannelSuccess: async (_connection, uid) => {
         console.log('[Agora] join success uid=', uid);
         setAgoraUid(uid);
         joinedRef.current = true;
+        const accountOrUid = uidAccountMapRef.current[uid] ?? uid;
         const localId = localUserIdRef.current ?? String(uid);
+        const displayName = await getDisplayName(accountOrUid); // ここ怪しいかも
+        if (!displayName) return;
         setParticipants(prev => {
           const local =
             prev.find(p => p.id === 'local') ?? prev.find(p => p.id === localId);
@@ -183,6 +186,10 @@ export default function RoomScreen({ navigation, route }: Props) {
           const others = prev.filter(p => p.id !== 'local' && p.id !== String(uid));
           return [me, ...others];
         });
+        // account をキーにして名前を更新
+        setParticipants(prev =>
+          prev.map(p => (p.id === accountOrUid ? { ...p, name: displayName } : p))
+        );
 
         // 追加: Firestore から自分の表示名を取得して更新
         getDisplayName(localId).catch(() => {});

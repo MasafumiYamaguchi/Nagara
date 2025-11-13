@@ -105,7 +105,7 @@ const Home = ({ route, navigation }: Props) => {
       });
     } catch (e) {
       console.error(e);
-      Alert.alert('参加に失敗しました', '部屋の取得に失敗したっぽい', [
+      Alert.alert('参加に失敗しました', '部屋の取得に失敗しました', [
         { text: 'OK', onPress: () => console.log('OK Pressed') },
       ]);
     }
@@ -151,7 +151,7 @@ const Home = ({ route, navigation }: Props) => {
   const handlePasswordSubmit = () => {
     if (!selectedRoom) return;
     if (selectedRoom.password !== passwordInput) {
-      Alert.alert('パスワードが違います', '入力したパスワードが正しくないっぽい', [
+      Alert.alert('パスワードが違います', '入力したパスワードが正しくありません', [
         { text: 'OK', onPress: () => console.log('OK Pressed') },
       ]);
       return;
@@ -321,7 +321,6 @@ const Home = ({ route, navigation }: Props) => {
           </Modal.Header>
           <Modal.Body>
             <VStack space={3}>
-              <Text fontSize="sm">参加するにはパスワードが必要だよ</Text>
               <Input
                 value={passwordInput}
                 onChangeText={setPasswordInput}
