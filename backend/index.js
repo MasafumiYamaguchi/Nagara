@@ -85,6 +85,23 @@ app.get('/rooms', async (req, res) => {
   }
 });
 
+// 追加: 部屋詳細を返すエンドポイント
+app.get('/rooms/:roomId', async (req, res) => {
+  try {
+    const id = Number(req.params.roomId);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid room ID' });
+    }
+    const room = await prisma.room.findUnique({ where: { id } });
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    res.json(room);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/rooms/:roomId/token', async (req, res) => {
   try {
     const { roomId } = req.params;

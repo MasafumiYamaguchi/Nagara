@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import {
   Box, Text, Input, ScrollView, VStack, HStack, Pressable, Badge, Divider,
-  Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView, useColorMode
+  Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView, useColorMode, Modal
 } from "native-base";
 import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl, Alert } from "react-native";
@@ -27,6 +27,7 @@ const API_BASE_URL =
   (Constants.expoConfig?.extra as any)?.apiBaseUrl || 'https://api.tsuuwa.com';
 
 type Room = { id: number; name: string; description: string; nop: number };
+type RoomDetail = Room & { password?: string | null };
 
 const Home = ({ route, navigation }: Props) => {
   const [searchText, setSearchText] = useState("");
@@ -40,6 +41,10 @@ const Home = ({ route, navigation }: Props) => {
   const { colorMode: nativeBaseColorMode } = useColorMode();
 
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [passwordPromptVisible, setPasswordPromptVisible] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,36 +82,33 @@ const Home = ({ route, navigation }: Props) => {
 
   // 部屋を選択したときの処理
   const handleRoomPress = async (roomId: number) => {
-    console.log(`Room ${roomId} selected`);
+    try {
       const res = await fetch(`${API_BASE_URL}/rooms/${roomId}`);
       if (!res.ok) {
         Alert.alert('参加に失敗しました', `エラーコード: ${res.status}`, [
-          {
-            text: 'OK',
-            onPress: () => console.log('OK Pressed'),
-          },
+          { text: 'OK', onPress: () => console.log('OK Pressed') },
         ]);
         return;
       }
-      if ((await res.json()).password) {
-        Alert.alert('パスワードが必要です', 'この部屋に参加するにはパスワードが必要です。', [
-          {
-            text: 'OK',
-            onPress: () => console.log('OK Pressed'),
-          },
-        ]);
+      const roomData: RoomDetail = await res.json();
+      if (roomData.password) {
+        setSelectedRoom(roomData);
+        setPasswordInput("");
+        setPasswordPromptVisible(true);
         return;
       }
-      if ((await res.json()).password !== password) {
-        Alert.alert('パスワードが違います', '入力したパスワードが正しくありません。', [
-          {
-            text: 'OK',
-            onPress: () => console.log('OK Pressed'),
-          },
-        ]);
-        return;
-      }
-    navigation.navigate("Room", { roomId, name: `Room ${roomId}`, nop: nop, password: password });
+      navigation.navigate("Room", {
+        roomId,
+        name: roomData.name ?? `Room ${roomId}`,
+        nop: roomData.nop ?? nop,
+        password: "",
+      });
+    } catch (e) {
+      console.error(e);
+      Alert.alert('参加に失敗しました', '部屋の取得に失敗したっぽい', [
+        { text: 'OK', onPress: () => console.log('OK Pressed') },
+      ]);
+    }
   };
 
   // 部屋作成キャンセル(特に何もしない)
@@ -144,6 +146,31 @@ const Home = ({ route, navigation }: Props) => {
   // リフレッシュの処理
   const onRefresh = () => {
     fetchRooms();
+  };
+
+  const handlePasswordSubmit = () => {
+    if (!selectedRoom) return;
+    if (selectedRoom.password !== passwordInput) {
+      Alert.alert('パスワードが違います', '入力したパスワードが正しくないっぽい', [
+        { text: 'OK', onPress: () => console.log('OK Pressed') },
+      ]);
+      return;
+    }
+    setPasswordPromptVisible(false);
+    navigation.navigate("Room", {
+      roomId: selectedRoom.id,
+      name: selectedRoom.name ?? `Room ${selectedRoom.id}`,
+      nop: selectedRoom.nop ?? nop,
+      password: passwordInput,
+    });
+    setSelectedRoom(null);
+    setPasswordInput("");
+  };
+
+  const handleClosePasswordModal = () => {
+    setPasswordPromptVisible(false);
+    setSelectedRoom(null);
+    setPasswordInput("");
   };
 
   return (
@@ -286,6 +313,36 @@ const Home = ({ route, navigation }: Props) => {
         icon={<Icon bg="blue.600" as={AntDesign} name="plus" color="white" size="sm" />}
         onPress={() => setIsCreateOpen(true)}
       />
+      <Modal isOpen={passwordPromptVisible} onClose={handleClosePasswordModal}>
+        <Modal.Content>
+          <Modal.CloseButton />
+          <Modal.Header>
+            {selectedRoom?.name ?? 'パスワード入力'}
+          </Modal.Header>
+          <Modal.Body>
+            <VStack space={3}>
+              <Text fontSize="sm">参加するにはパスワードが必要だよ</Text>
+              <Input
+                value={passwordInput}
+                onChangeText={setPasswordInput}
+                placeholder="パスワードを入力"
+                secureTextEntry
+                autoFocus
+              />
+            </VStack>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button.Group space={2}>
+              <Button variant="ghost" onPress={handleClosePasswordModal}>
+                キャンセル
+              </Button>
+              <Button onPress={handlePasswordSubmit} isDisabled={!passwordInput.trim()}>
+                参加する
+              </Button>
+            </Button.Group>
+          </Modal.Footer>
+        </Modal.Content>
+      </Modal>
       {isCreateOpen && (
         <>
           <Pressable
@@ -388,6 +445,7 @@ const Home = ({ route, navigation }: Props) => {
               </Box>
             </Center>
           </KeyboardAvoidingView>
+          <KeyboardAvoidingView />
         </>
       )}
     </Box>
