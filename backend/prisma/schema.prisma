@@ -14,7 +14,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Room {
+model room {
   id          Int      @id @default(autoincrement())
   name        String
   description String   @default("")
