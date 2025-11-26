@@ -32,7 +32,19 @@ import {
 } from 'react-native-agora';
 
 import { getApp } from '@react-native-firebase/app';
-import { getFirestore } from '@react-native-firebase/firestore';
+
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 
 // 参加者の情報
@@ -87,9 +99,9 @@ export default function RoomScreen({ navigation, route }: Props) {
   const REACTION_EMOJI_SIZE = 28;
 
   // アプリインスタンスを取得 
-  const app = getApp();
-  const db = getFirestore(app);
-  const auth = getAuth(app);
+    const app = getApp();
+    const db = getFirestore(app);
+    const auth = getAuth(app);
   // Agoraのuid→userAccountのマップ
   const uidAccountMapRef = useRef<Record<string, string>>({});
 
@@ -99,7 +111,9 @@ export default function RoomScreen({ navigation, route }: Props) {
     if (nameCacheRef.current[id]) return nameCacheRef.current[id];
 
     try {
-      const userDoc = await db.collection('users').doc(id).get();
+      const userRef = doc(db, 'users', id);
+      const userDoc = await getDoc(userRef);
+
       if (!userDoc.exists) {
         const fallback = `User ${id}`;
         nameCacheRef.current[id] = fallback;
@@ -139,7 +153,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     return true;
   };
 
-  // Agora 初期化
+  // Agora 初期化 (RTCの方)
   const initAgora = useCallback(async () => {
     if (engineRef.current || !AGORA_APP_ID) return;
 
@@ -313,6 +327,34 @@ export default function RoomScreen({ navigation, route }: Props) {
 
     engineRef.current = engine;
   }, [AGORA_APP_ID, getDisplayName]);
+
+  useEffect(() => {
+    console.log('[Reaction] Start listening');
+
+    const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
+    const q = query(reactionsRef, orderBy('createdAt', 'desc'), limit(1));
+    // 最新のリアクションを監視
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot?.docChanges().forEach((change: any) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            // サーバー時刻がない場合(ローカル書き込み直後)は現在時刻扱い
+            const createdAt = data.createdAt?.toMillis?.() ?? Date.now();
+            
+            // 10秒以内の新しいリアクションだけ反応する（過去ログ無視）
+            if (Date.now() - createdAt < 10000) {
+               console.log('[Reaction Received]', data.emoji, 'from', data.senderName);
+               // ★ここで画面にアニメーション出す処理を呼ぶと完璧！
+               // showReactionAnimation(data.emoji); 
+               // とりあえずコンソールログだけ
+               console.log('Show reaction animation for', data.emoji);
+            }
+          }
+        });
+      });
+
+    return () => unsubscribe();
+  }, [roomId, db]);
 
   // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
@@ -753,7 +795,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                 py={3}
                 w="auto"
                 flexShrink={1}
-                bg={useColorModeValue('rgba(30,30,30,0.55)', 'rgba(250,250,250,0.18)')}
+                //bg={useColorModeValue('rgba(30,30,30,0.55)', 'rgba(250,250,250,0.18)')}
                 borderWidth={1}
                 borderColor={useColorModeValue('rgba(255,255,255,0.28)', 'rgba(255,255,255,0.25)')}
                 rounded="full"
@@ -771,10 +813,25 @@ export default function RoomScreen({ navigation, route }: Props) {
                       rounded="full"
                       _pressed={{ bg: useColorModeValue('white:alpha.20', 'black:alpha.30') }}
                       hitSlop={8}
-                      onPress={() => {
+                      onPress={async () => {
                         console.log('Reaction:', emoji);
                         setShowReaction(false);
-                        // TODO: sendReaction(emoji)
+                        
+                        // ↓↓↓ 修正: Firestoreに書き込み
+                        try {
+                          const myName = participants.find(p => p.id === localUserIdRef.current)?.name || 'Unknown';
+
+                          const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
+                          await addDoc(reactionsRef, {
+                            emoji,
+                            senderId: agoraUid,
+                            senderName: myName,
+                            createdAt: serverTimestamp(),
+                          });
+                          console.log('[Reaction] Sent:', emoji);
+                        } catch (e) {
+                          console.warn('[Reaction] Send error:', e);
+                        }
                       }}
                     >
                       <Text fontSize={REACTION_EMOJI_SIZE} lineHeight={REACTION_EMOJI_SIZE}>
