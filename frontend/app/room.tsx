@@ -64,6 +64,9 @@ export default function RoomScreen({ navigation, route }: Props) {
   const { roomId, name } = route.params;
   const [isMuted, setIsMuted] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  
+  // ★追加: 誰がどのリアクション中かを管理するState
+  const [activeReactions, setActiveReactions] = useState<Record<string, string>>({});
 
   const { isOpen, onOpen, onClose } = useDisclose();
   const cancelRef = React.useRef(null);
@@ -85,6 +88,7 @@ export default function RoomScreen({ navigation, route }: Props) {
 
   // リアクションボタン用
   const [showReaction, setShowReaction] = useState(false);
+  const [reactionActive, setReactionActive] = useState<Record<string, string>>({});
   // FAB の位置を一元化（トレーもそこ基準に出す）
   const insets = useSafeAreaInsets();
   const FAB_SIZE = 56; // NativeBaseのデフォルトFABサイズ想定
@@ -344,10 +348,9 @@ export default function RoomScreen({ navigation, route }: Props) {
             // 10秒以内の新しいリアクションだけ反応する（過去ログ無視）
             if (Date.now() - createdAt < 10000) {
                console.log('[Reaction Received]', data.emoji, 'from', data.senderName);
-               // ★ここで画面にアニメーション出す処理を呼ぶと完璧！
-               // showReactionAnimation(data.emoji); 
-               // とりあえずコンソールログだけ
-               console.log('Show reaction animation for', data.emoji);
+               // ★修正: senderId も渡すようにする（data.senderId は addDoc で入れてるはず）
+               // senderId が数値の場合もあるので String() で変換しておく
+               ShowReaction(data.emoji, String(data.senderId));
             }
           }
         });
@@ -355,6 +358,24 @@ export default function RoomScreen({ navigation, route }: Props) {
 
     return () => unsubscribe();
   }, [roomId, db]);
+
+  // ★実装: リアクションを表示して、3秒後に消す
+  const ShowReaction = (emoji: string, senderId: string) => {
+    // Stateを更新して表示させる
+    setActiveReactions(prev => ({
+      ...prev,
+      [senderId]: emoji
+    }));
+
+    // 3秒後に消すタイマー
+    setTimeout(() => {
+      setActiveReactions(prev => {
+        const next = { ...prev };
+        delete next[senderId]; // キーを削除して非表示に
+        return next;
+      });
+    }, 3000);
+  }
 
   // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
@@ -642,6 +663,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     setParticipants([]);
   };
 
+
   return (
     <Box flex={1} bg={bgColor} safeArea>
       {/* 本文 */}
@@ -687,11 +709,28 @@ export default function RoomScreen({ navigation, route }: Props) {
                       </Text>
                     </VStack>
                   </Center>
+                  
+                  {/* ★追加: リアクションがあればここに表示！ */}
+                  {activeReactions[participant.id] && (
+                    <Center 
+                      position="absolute" 
+                      bottom={0} right={0} mb={4} mr={4}
+                      bg="rgba(0,0,0,0.6)"
+                      rounded="full"
+                      p={2} h={12} w={12}
+                    >
+                      <Text fontSize="xl">
+                        {activeReactions[participant.id]}
+                      </Text>
+                    </Center>
+                  )}
+
                   {participant.isMuted && (
                     <Box position="absolute" top={2} right={2} bg="red.500" rounded="full" p={1}>
                       <Ionicons name="mic-off" size={16} color="white" />
                     </Box>
                   )}
+                  {}
                 </Box>
                 <Box p={3}>
                   <HStack justifyContent="space-between" alignItems="center">
@@ -824,7 +863,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                           const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
                           await addDoc(reactionsRef, {
                             emoji,
-                            senderId: agoraUid,
+                            senderId: localUserIdRef.current,
                             senderName: myName,
                             createdAt: serverTimestamp(),
                           });
