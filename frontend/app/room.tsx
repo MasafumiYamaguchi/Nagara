@@ -88,7 +88,6 @@ export default function RoomScreen({ navigation, route }: Props) {
 
   // リアクションボタン用
   const [showReaction, setShowReaction] = useState(false);
-  const [reactionActive, setReactionActive] = useState<Record<string, string>>({});
   // FAB の位置を一元化（トレーもそこ基準に出す）
   const insets = useSafeAreaInsets();
   const FAB_SIZE = 56; // NativeBaseのデフォルトFABサイズ想定
