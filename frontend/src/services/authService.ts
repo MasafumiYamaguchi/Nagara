@@ -1,4 +1,4 @@
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
@@ -48,14 +48,6 @@ export function initializeAuthObserver() {
       });
     }
   });
-}
-
-export async function signUp(email: string, password: string) {
-  return createUserWithEmailAndPassword(auth, email, password);
-}
-
-export async function signIn(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
 }
 
 export async function signOut() {

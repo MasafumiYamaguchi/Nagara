@@ -32,3 +32,12 @@ jobs:
       - name: Run Tests
         run: yarn test
         working-directory: ./frontend
+
+      - name: Run E2E Tests
+        run: 
+          yarn detox --configuration ios.sim.debug --cleanup
+          yarn detox test --configuration ios.sim.debug
+        working-directory: ./frontend
+        env:
+          DETOX_E2E: 'true'
+          CI: 'true'

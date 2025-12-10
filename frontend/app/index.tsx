@@ -1,6 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Center, VStack, Heading, Button, Text } from "native-base";
+import { VStack, Heading, Button, Text } from "native-base";
 import React, { useEffect } from "react";
+import { View, StyleSheet } from "react-native";
 
 import { RootStackParamList } from "./navigation/types";
 
@@ -10,9 +11,11 @@ export default function Index({ route, navigation }: Props) {
   useEffect(() => {
     console.log("Index screen mounted");
 
+    // E2Eテスト中はタイマーをもうちょい長めに
+    const isE2E = __DEV__ && process.env.DETOX_CONFIGURATION !== undefined;
     const timer = setTimeout(() => {
       navigation.navigate("Login");
-    }, 1000);
+    }, isE2E ? 3000 : 1000);
 
     return () => {
       clearTimeout(timer);
@@ -21,7 +24,7 @@ export default function Index({ route, navigation }: Props) {
   }, [route, navigation]);
 
   return (
-    <Center flex={1} px="3">
+    <View style={styles.container} testID="indexScreen">
       <VStack space={4} alignItems="center">
         <Heading size="xl" color="coolGray.800">
           Tsuuwa
@@ -49,6 +52,15 @@ export default function Index({ route, navigation }: Props) {
           </Button>
         </VStack>
       </VStack>
-    </Center>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+});

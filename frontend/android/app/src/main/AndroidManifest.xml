@@ -30,7 +30,6 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="tsuuwa"/>
         <data android:scheme="com.company.tsuuwa"/>
-        <data android:scheme="exp+tsuuwa"/>
       </intent-filter>
     </activity>
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
