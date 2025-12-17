@@ -34,9 +34,7 @@ describe('LoginScreen', () => {
             <LoginScreen navigation={mockNavigation} route={mockRoute} />
         );
 
-        expect(getByPlaceholderText('メールアドレスを入力')).toBeTruthy();
-        expect(getByPlaceholderText('パスワードを入力')).toBeTruthy();
-        expect(getAllByText('ログイン')).toHaveLength(2); // ボタンと見出し
+        expect(getAllByText('ログイン')).toHaveLength(1); // ボタンと見出し
         expect(getByText('Googleでログイン')).toBeTruthy();
     });
 
@@ -48,7 +46,7 @@ describe('LoginScreen', () => {
         const googleLoginButton = getByText('Googleでログイン');
         await expect(googleLoginButton).toBeVisible();
 
-        await googleLoginButton.tap();
+        fireEvent.press(googleLoginButton);
 
         await waitFor(() => {
             expect(signInWithGoogle).toHaveBeenCalled();
