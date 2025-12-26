@@ -33,6 +33,8 @@ import {
 
 import { getApp } from '@react-native-firebase/app';
 
+import crashlytics from '@react-native-firebase/crashlytics';
+
 import {
   getFirestore,
   doc,
@@ -137,6 +139,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       return displayName;
     } catch (e) {
       console.warn('getDisplayName failed', e);
+      crashlytics().recordError(e as Error);
       return `User ${id}`;
     }
   }, [db]);
@@ -240,6 +243,7 @@ export default function RoomScreen({ navigation, route }: Props) {
             }
           } catch (e) {
             console.warn('[Agora] getDisplayName error', e);
+            crashlytics().recordError(e as Error);
           }
 
           try {
@@ -247,6 +251,7 @@ export default function RoomScreen({ navigation, route }: Props) {
             console.log('[Agora] getUserInfoByUid ->', info);
           } catch (e) {
             console.log('[Agora] getUserInfoByUid error', e);
+            crashlytics().recordError(e as Error);
           }
         })();
       },
@@ -393,6 +398,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       }
     } catch (error) {
       console.error('Error renewing token:', error);
+      crashlytics().recordError(error as Error);
     }
   }, [roomId]);
 
@@ -525,6 +531,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       console.log('[Agora] エラー詳細:', JSON.stringify(e));
       setTokenError(e?.message || 'トークン取得失敗');
       setAgoraToken(null);
+      crashlytics().recordError(e as Error);
     } finally {
       tokenLoadingRef.current = false;
       setTokenLoading(false);

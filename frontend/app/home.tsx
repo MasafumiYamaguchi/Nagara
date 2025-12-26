@@ -13,6 +13,8 @@ import { ColorModeContext } from "./hooks/ColorModeContext ";
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { opacity } from "react-native-reanimated/lib/typescript/reanimated2/Colors";
 
+import crashlytics from '@react-native-firebase/crashlytics';
+
 type TabParamList = {
   ホーム: undefined;
   プロフィール: undefined;
@@ -63,6 +65,7 @@ const Home = ({ route, navigation }: Props) => {
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "ロードに失敗しました");
+      crashlytics().recordError(e as Error);
     } finally {
       setLoading(false);
     }
@@ -108,6 +111,7 @@ const Home = ({ route, navigation }: Props) => {
       Alert.alert('参加に失敗しました', '部屋の取得に失敗しました', [
         { text: 'OK', onPress: () => console.log('OK Pressed') },
       ]);
+      crashlytics().recordError(e as Error);
     }
   };
 
@@ -138,6 +142,7 @@ const Home = ({ route, navigation }: Props) => {
     } catch (e: any) {
       console.error(e);
       setError(e?.message ?? "作成に失敗しました");
+      crashlytics().recordError(e as Error);
     } finally {
       handleCancelCreate();
     }

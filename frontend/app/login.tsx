@@ -17,6 +17,8 @@ import { signInWithGoogle } from "../src/services/authService";
 
 import { useAuthStore } from "../src/store/authStore";
 
+import crashlytics from "@react-native-firebase/crashlytics";
+
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
 export default function LoginScreen({ navigation }: Props) {
@@ -25,6 +27,7 @@ export default function LoginScreen({ navigation }: Props) {
   const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
+    crashlytics().log('LoginScreen mounted');
     if (user) {
       console.log('User logged in, navigating to Main');
       navigation.replace('Main');
@@ -45,9 +48,15 @@ export default function LoginScreen({ navigation }: Props) {
         variant: "subtle",
         colorScheme: "danger",
       });
+      crashlytics().recordError(error);
     } finally {
       setIsGoogleLoading(false);
     }
+  };
+
+  // 強制的にクラッシュさせる
+  const forceCrash = () => {
+    crashlytics().crash();
   };
 
   return (
@@ -77,6 +86,13 @@ export default function LoginScreen({ navigation }: Props) {
             colorScheme="coolGray"
             mt="4"
             onPress={() => navigation.goBack()}
+            /*
+            onLongPress={() => {
+                  // クラッシュを強制的に発生させる（テスト用）
+                  crashlytics().log('Forcing a crash for testing purposes');
+                  forceCrash();
+            } }
+            */
           >
             戻る
           </Button>

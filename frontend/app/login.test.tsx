@@ -3,7 +3,7 @@ import { render, fireEvent, waitFor} from '@testing-library/react-native';
 import { NativeBaseProvider } from 'native-base';
 import LoginScreen from './login'; // テスト対象のコンポーネントをインポート
 import {signInWithGoogle } from '../src/services/authService';
-import { describe, beforeEach, expect, it } from '@jest/globals';
+import {jest, describe, beforeEach, expect, it } from '@jest/globals';
 
 jest.mock('../src/services/authService', () => ({
     signInWithGoogle: jest.fn(),
