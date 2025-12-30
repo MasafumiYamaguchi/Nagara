@@ -11,6 +11,7 @@ import {
   Button,
   Avatar,
   Badge,
+  Icon,
   IconButton,
   useColorModeValue,
   Center,
@@ -18,8 +19,9 @@ import {
   useDisclose,
   FlatList,
   Fab,
-  PresenceTransition,     // 追加
-  Pressable,              // 追加
+  PresenceTransition,
+  Pressable,
+  Menu,
 } from 'native-base';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import constants from 'expo-constants';
@@ -48,6 +50,8 @@ import {
   serverTimestamp,
 } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
+
+import ReportUserDialog from './components/reportuserdialog';
 
 // 参加者の情報
 interface Participant {
@@ -109,6 +113,10 @@ export default function RoomScreen({ navigation, route }: Props) {
     const auth = getAuth(app);
   // Agoraのuid→userAccountのマップ
   const uidAccountMapRef = useRef<Record<string, string>>({});
+
+  // 通報用のストア
+  const [isOpenReportDialog, setIsOpenReportDialog] = useState(false);
+  const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
 
   // 追加/修正: Firestore から表示名を取得（RN Firebase流）
   const getDisplayName = useCallback(async (id: string) => {
@@ -670,17 +678,20 @@ export default function RoomScreen({ navigation, route }: Props) {
   };
 
 
+
   return (
     <Box flex={1} bg={bgColor} safeArea>
       {/* 本文 */}
       <Box bg={headerBg} px={4} py={3} shadow={2}>
         <HStack justifyContent="space-between" alignItems="center">
           <Text fontSize="xl" fontWeight="bold">
-            通話ルーム
+            {name || `Room ${roomId}`}
           </Text>
-          <Badge bg="primary.500" _text={{ color: 'white' }} rounded="full" >
-            <Text fontSize="sm">参加者 {participants.length} 人</Text>
-          </Badge>
+          <HStack space={2} alignItems="center">
+            <Badge bg="primary.500" _text={{ color: 'white' }} rounded="full" >
+              <Text fontSize="sm">参加者 {participants.length} 人</Text>
+            </Badge>
+          </HStack>
         </HStack>
         {tokenLoading && <Text fontSize="xs" color="gray.500">トークン取得中...</Text>}
         {tokenError && <Text fontSize="xs" color="red.500">{tokenError}</Text>}
@@ -693,67 +704,92 @@ export default function RoomScreen({ navigation, route }: Props) {
             keyExtractor={(item) => item.id}
             numColumns={2}
             showsVerticalScrollIndicator={false}
-            renderItem={({ item: participant, index }) => (
-              <Box
-                flex={1}
-                bg={(participant.speakingVolume ?? 0) > 50 ? 'blue.600' : cardBg || 'transparent'}
-                borderWidth={(participant.speakingVolume ?? 0) > 50 ? 2 : 0}
-                borderColor="blue.400"
-                rounded="xl"
-                shadow={3}
-                overflow="hidden"
-                mb={4}
-                mr={index % 2 === 0 ? 2 : 0}
-                ml={index % 2 === 1 ? 2 : 0}
-              >
-                <Box bg="black" position="relative">
-                  <Center flex={1} bg="gray.600" py={8}>
-                    <VStack space={2} alignItems="center">
-                      <Avatar size="lg" bg="blue.500" />
-                      <Text color="white" fontSize="md">
-                        {participant.name}
-                      </Text>
-                    </VStack>
-                  </Center>
-                  
-                  {/* ★追加: リアクションがあればここに表示！ */}
-                  {activeReactions[participant.id] && (
-                    <Center 
-                      position="absolute" 
-                      bottom={0} right={0} mb={4} mr={4}
-                      bg="rgba(0,0,0,0.6)"
-                      rounded="full"
-                      p={2} h={12} w={12}
-                    >
-                      <Text fontSize="xl">
-                        {activeReactions[participant.id]}
-                      </Text>
+            renderItem={({ item: participant, index }) => {
+              // ★追加: 自分かどうか判定
+              const isMe = participant.id === localUserIdRef.current;
+
+              return (
+                <Box
+                  flex={1}
+                  bg={(participant.speakingVolume ?? 0) > 50 ? 'blue.600' : cardBg || 'transparent'}
+                  borderWidth={(participant.speakingVolume ?? 0) > 50 ? 2 : 0}
+                  borderColor="blue.400"
+                  rounded="xl"
+                  shadow={3}
+                  overflow="hidden"
+                  mb={4}
+                  mr={index % 2 === 0 ? 2 : 0}
+                  ml={index % 2 === 1 ? 2 : 0}
+                  position="relative"
+                >
+                  <Box bg="black">
+                    <Center flex={1} bg="gray.600" py={8}>
+                      <VStack space={2} alignItems="center">
+                        <Avatar size="lg" bg="blue.500" />
+                        <Text color="white" fontSize="md">
+                          {participant.name}
+                        </Text>
+                      </VStack>
                     </Center>
+                  </Box>
+
+                  {/* ★条件分岐: 自分じゃないときだけメニュー表示 */}
+                  {!isMe && (
+                    <Menu
+                      trigger={(triggerProps) => (
+                        <IconButton
+                          {...triggerProps}
+                          position="absolute"
+                          top={2}
+                          right={2}
+                          zIndex={20}
+                          size="sm"
+                          bg="white"
+                          _pressed={{ bg: 'gray.200' }}
+                          rounded="full"
+                          icon={
+                            <Icon
+                              as={Ionicons}
+                              name="ellipsis-horizontal"
+                              size="sm"
+                              color="black"
+                            />
+                          }
+                        />
+                      )}
+                      placement="left top"
+                    >
+                      <Menu.Item onPress={() => console.log('プロフィールを見る', participant.id)}>
+                        プロフィールを見る
+                      </Menu.Item>
+                      <Menu.Item onPress={() => { 
+                        console.log('通報する', participant.id); 
+                        setIsOpenReportDialog(true); 
+                        setReportedUserId(participant.id); 
+                      }}>
+                        通報する
+                      </Menu.Item>
+                    </Menu>
                   )}
 
-                  {participant.isMuted && (
-                    <Box position="absolute" top={2} right={2} bg="red.500" rounded="full" p={1}>
-                      <Ionicons name="mic-off" size={16} color="white" />
-                    </Box>
-                  )}
-                  {}
-                </Box>
-                <Box p={3}>
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Text fontWeight="semibold" fontSize="md">
-                      {participant.name}
-                    </Text>
-                    <HStack space={1}>
-                      {participant.isMuted && (
-                        <Badge bg="red.500" _text={{ color: 'white' }} variant="solid" size="sm">
-                          ミュート
-                        </Badge>
-                      )}
+                  {/* ミュートバッジとか下の名前エリア */}
+                  <Box p={3}>
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <Text fontWeight="semibold" fontSize="md">
+                        {participant.name}
+                      </Text>
+                      <HStack space={1}>
+                        {participant.isMuted && (
+                          <Badge bg="red.500" _text={{ color: 'white' }} variant="solid" size="sm">
+                            ミュート
+                          </Badge>
+                        )}
+                      </HStack>
                     </HStack>
-                  </HStack>
+                  </Box>
                 </Box>
-              </Box>
-            )}
+              );
+            }}
           />
       </Box>
 
@@ -921,6 +957,14 @@ export default function RoomScreen({ navigation, route }: Props) {
           </AlertDialog.Footer>
         </AlertDialog.Content>
       </AlertDialog>
+      {/* 通報ダイアログ */}
+      {isOpenReportDialog && (
+        <ReportUserDialog
+          isOpen={isOpenReportDialog}
+          onClose={() => setIsOpenReportDialog(false)}
+          reportedUserId={reportedUserId ?? ''} // ここに通報対象のユーザーIDを渡す
+        />
+      )}
     </Box>
   );
   
