@@ -27,7 +27,7 @@ jobs:
         run: npm install --package-lock-only
 
       - name: Install frontend dependencies
-        run: npm install --package-lock-only
+        run: npm install --package-lock-only --legacy-peer-deps
         working-directory: ./frontend
 
       - name: Run Lint
