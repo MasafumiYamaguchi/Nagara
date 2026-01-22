@@ -17,33 +17,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'yarn'
-          cache-dependency-path: '**/yarn.lock' # キャッシュキーをより正確に
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json' # キャッシュキーをより正確に
 
       - name: Boot iOS Simulator
         run: open -a Simulator
 
-      - name: Remove package-lock.json to avoid conflicts
-        run: rm -f package-lock.json frontend/package-lock.json
-
       - name: Install root dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install --package-lock-only
 
       - name: Install frontend dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install --package-lock-only
         working-directory: ./frontend
 
       - name: Run Lint
-        run: yarn lint
-
+        run: npm run lint
       - name: Run Tests
-        run: yarn test
+        run: npm test
         working-directory: ./frontend
 
       - name: Run E2E Tests
         run: 
-          yarn detox --configuration ios.sim.debug --cleanup
-          yarn detox test --configuration ios.sim.debug
+          npm run detox -- --configuration ios.sim.debug --cleanup
+          npm run detox test -- --configuration ios.sim.debug
         working-directory: ./frontend
         env:
           DETOX_E2E: 'true'
