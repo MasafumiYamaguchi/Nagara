@@ -23,6 +23,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "types/**/*.d.ts",
     "nativewind-env.d.ts"
   ],
   "exclude": [

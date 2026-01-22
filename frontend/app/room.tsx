@@ -53,6 +53,11 @@ import { getAuth } from '@react-native-firebase/auth';
 
 import ReportUserDialog from './components/reportuserdialog';
 
+// BGM用意
+import { Audio } from 'expo-av';
+import bonfire from '../assets/music/bonfire.mp3';
+import brownnoise from '../assets/music/brownnoise.mp3';
+
 // 参加者の情報
 interface Participant {
   id: string;
@@ -67,10 +72,10 @@ type Props = NativeStackScreenProps<RootStackParamList, "Room">;
 const AGORA_APP_ID = constants.expoConfig?.extra?.agoraAppId;
 
 export default function RoomScreen({ navigation, route }: Props) {
-  const { roomId, name } = route.params;
+  const { roomId, name } = route.params;  
   const [isMuted, setIsMuted] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  
+  const [bgmSound, setBgmSound] = useState<Audio.Sound | null>(null);
   // ★追加: 誰がどのリアクション中かを管理するState
   const [activeReactions, setActiveReactions] = useState<Record<string, string>>({});
 
