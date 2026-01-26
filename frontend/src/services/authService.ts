@@ -55,14 +55,12 @@ export async function signOut() {
 }
 
 export const signInWithGoogle = async () => {
-  try {
-    await GoogleSignin.hasPlayServices();
-    const { idToken } = await GoogleSignin.signIn();
 
-    const googleCredential = GoogleAuthProvider.credential(idToken);
+  await GoogleSignin.hasPlayServices();
+  const { idToken } = await GoogleSignin.signIn();
 
-    return signInWithCredential(auth, googleCredential);
-  } catch (error) {
-    throw error;
-  }
+  const googleCredential = GoogleAuthProvider.credential(idToken);
+
+  return signInWithCredential(auth, googleCredential);
+  
 }

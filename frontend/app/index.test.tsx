@@ -3,6 +3,10 @@ import { render } from '@testing-library/react-native';
 import { NativeBaseProvider } from 'native-base';
 import Index from './index'; // テスト対象のコンポーネントをインポート
 import { describe, beforeEach, expect, it } from '@jest/globals';
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { RootStackParamList } from "./navigation/types";
+
+type IndexProps = NativeStackScreenProps<RootStackParamList, "Index">;
 
 // NativeBaseとexpo-routerのモックが必要な場合があるため、
 // jest-setup.jsで設定したモックが使われます。
@@ -10,14 +14,13 @@ import { describe, beforeEach, expect, it } from '@jest/globals';
 describe('<Index />', () => {
   it('renders correctly', () => {
     // React Navigationから渡されるpropsのモックを作成します
-    const mockNavigation = {
+    const mockNavigation: Partial<IndexProps[`navigation`]> = {
       navigate: jest.fn(),
-      // 必要に応じて他のnavigationメソッドをモックします
     };
-    const mockRoute = {
+    const mockRoute: Partial<IndexProps[`route`]> = {
       key: 'mockRouteKey',
       name: 'Index',
-      params: {},
+      params: undefined,
     };
 
     // NativeBaseProviderでラップするための設定
@@ -28,7 +31,7 @@ describe('<Index />', () => {
 
     const { getByText } = render(
       <NativeBaseProvider initialWindowMetrics={inset}>
-        <Index navigation={mockNavigation as any} route={mockRoute as any} />
+        <Index navigation={mockNavigation as IndexProps[`navigation`]} route={mockRoute as IndexProps[`route`]} />
       </NativeBaseProvider>
     );
     

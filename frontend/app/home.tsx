@@ -26,7 +26,7 @@ type Props = BottomTabScreenProps<TabParamList, 'ホーム'>;
 
 // 実行環境に応じてベースURLを切り替え（全て Lightsail のIPに統一）
 const API_BASE_URL =
-  (Constants.expoConfig?.extra as any)?.apiBaseUrl || 'https://api.tsuuwa.com';
+  (Constants.expoConfig?.extra)?.apiBaseUrl || 'https://api.tsuuwa.com';
 
 type Room = { id: number; name: string; description: string; nop: number };
 type RoomDetail = Room & { password?: string | null };
@@ -62,7 +62,7 @@ const Home = ({ route, navigation }: Props) => {
       }
       const data: Room[] = await res.json();
       setRooms(data);
-    } catch (e: any) {
+    } catch (e: String | any) {
       console.error(e);
       setError(e?.message ?? "ロードに失敗しました");
       crashlytics().recordError(e as Error);
@@ -139,7 +139,7 @@ const Home = ({ route, navigation }: Props) => {
       }
       await fetchRooms();
       navigation.navigate("Room", { roomId: (await res.json()).id, name: roomName.trim(), nop: nop, password: password });
-    } catch (e: any) {
+    } catch (e: String | any) {
       console.error(e);
       setError(e?.message ?? "作成に失敗しました");
       crashlytics().recordError(e as Error);

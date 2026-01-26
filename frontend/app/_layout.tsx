@@ -27,12 +27,12 @@ const ColorModeBridge: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const { colorMode, toggleColorMode } = useColorMode();
 
   const value = React.useMemo(
-    () => ({ colorMode, toggleColorMode }),
+    () => ({ colorMode: colorMode as "light" | "dark", toggleColorMode }),
     [colorMode, toggleColorMode],
   );
 
   return (
-    <ColorModeContext.Provider value={value as any}>
+    <ColorModeContext.Provider value={value}>
       {children}
     </ColorModeContext.Provider>
   );
@@ -74,7 +74,7 @@ const theme = extendTheme({
   },
   components: {
     Heading: {
-      baseStyle: (props: any) => {
+      baseStyle: (props: Record<string, unknown>) => {
         return {
           _light: { color: 'gray.900' },
           _dark: { color: 'gray.100' },
@@ -82,7 +82,7 @@ const theme = extendTheme({
       },
     },
     Text: {
-      baseStyle: (props: any) => {
+      baseStyle: (props: Record<string, unknown>) => {
         return {
           bg: 'transparent',               // ← 追加：常に背景は透明
           _light: { color: 'gray.900' },
@@ -91,7 +91,7 @@ const theme = extendTheme({
       },
     },
     Input: {
-      baseStyle: (props: any) => {
+      baseStyle: (props: Record<string, unknown>) => {
         return {
           _light: { 
             bg: 'white', 
@@ -111,8 +111,10 @@ const theme = extendTheme({
       },
     },
     Button: {
-      baseStyle: {
-        borderRadius: 'md',
+      baseStyle: (props: Record<string, unknown>) => {
+        return {
+          borderRadius: 'md',
+        };
       },
       defaultProps: {
         variant: 'solid',
@@ -126,7 +128,8 @@ const theme = extendTheme({
         },
       },
       variants: {
-        solid: {
+        solid: (props: Record<string, unknown>) => {
+          return {
           _light: {
             bg: 'blue.600',
             _text: {
@@ -155,8 +158,10 @@ const theme = extendTheme({
               _text: { color: 'gray.500' },
             },
           },
+        };
         },
-        outline: {
+        outline: (props: Record<string, unknown>) => {
+          return {
           _light: {
             bg: 'transparent',
             borderWidth: 1,
@@ -177,8 +182,10 @@ const theme = extendTheme({
               borderColor: 'gray.400',
             },
           },
+        };
         },
-        ghost: {
+        ghost: (props: Record<string, unknown>) => {
+          return {
           _light: { 
             bg: 'transparent', 
             _text: { color: 'gray.700', bg: 'transparent' }, 
@@ -195,11 +202,12 @@ const theme = extendTheme({
               _text: { bg: 'transparent' },
             } 
           },
+        };
         },
       },
     },
     TextArea: {
-      baseStyle: (props: any) => {
+      baseStyle: (props: Record<string, unknown>) => {
         return {
           _light: { 
             bg: 'white', 

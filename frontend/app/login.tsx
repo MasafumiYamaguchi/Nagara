@@ -42,6 +42,7 @@ export default function LoginScreen({ navigation }: Props) {
         title: "Googleログイン成功",
         variant: "solid",
       });
+      navigation.replace("Main");
     } catch (error: any) {
       toast.show({
         description: error.message || "Googleログインに失敗しました",
@@ -71,6 +72,9 @@ export default function LoginScreen({ navigation }: Props) {
           </Text>
 
           <Button
+            testID="googleLoginButton"
+            accessibilityLabel="Googleでログイン"
+            accessibilityRole="button"
             mt="10"
             leftIcon={<Icon as={MaterialIcons} name="login" size="sm" />}
             colorScheme="red"
