@@ -1,8 +1,6 @@
 import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
-import react from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import importPlugin from 'eslint-plugin-import';
 
@@ -16,7 +14,6 @@ export default [
       sourceType: 'module',
       globals: {
         // React Native/Expo globals
-        React: 'readonly',
         JSX: 'readonly',
         // Node.js globals
         process: 'readonly',
@@ -42,17 +39,11 @@ export default [
     },
     plugins: {
       '@typescript-eslint': typescript,
-      'react': react,
-      'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y,
       'import': importPlugin,
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      ...react.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-      'react/jsx-filename-extension': [1, { extensions: ['.tsx', '.jsx'] }],
-      'react/react-in-jsx-scope': 'off',
       // import/extensionsを緩和（React Native/Expoでは拡張子省略が一般的）
       'import/extensions': [
         'error',
@@ -78,9 +69,6 @@ export default [
       'no-fallthrough': 'warn',
     },
     settings: {
-      react: {
-        version: 'detect',
-      },
       'import/resolver': {
         typescript: {
           alwaysTryTypes: true,
