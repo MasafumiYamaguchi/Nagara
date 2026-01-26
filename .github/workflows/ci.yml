@@ -5,6 +5,8 @@ on: [push]
 jobs:
   test:
     runs-on: macos-latest
+    env:
+      NPM_CONFIG_LEGACY_PEER_DEPS: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
