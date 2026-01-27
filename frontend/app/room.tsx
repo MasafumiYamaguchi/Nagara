@@ -85,6 +85,12 @@ export default function RoomScreen({ navigation, route }: Props) {
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const headerBg = useColorModeValue('white', 'gray.800');
+  const reactionFabBg = useColorModeValue('rgba(255,255,255,0.55)', 'rgba(250,250,250,0.18)');
+  const reactionFabBorder = useColorModeValue('rgba(255,255,255,0.25)', 'rgba(255,255,255,0.18)');
+  const reactionFabPressed = useColorModeValue('rgba(255,255,255,0.20)', 'rgba(0,0,0,0.35)');
+  const reactionFabIconColor = useColorModeValue('black', 'white');
+  const reactionTrayBorder = useColorModeValue('rgba(255,255,255,0.28)', 'rgba(255,255,255,0.25)');
+  const reactionItemPressed = useColorModeValue('white:alpha.20', 'black:alpha.30');
 
   // Agora 認証関連
   const [agoraToken, setAgoraToken] = useState<string | null>(null);
@@ -137,7 +143,7 @@ export default function RoomScreen({ navigation, route }: Props) {
         nameCacheRef.current[id] = fallback;
         return fallback;
       }
-      const data = userDoc.data() as any;
+      const data = userDoc.data();
       // displayName がない場合のフォールバックを拡張
       const displayName =
         (data?.displayName as string)
@@ -268,7 +274,7 @@ export default function RoomScreen({ navigation, route }: Props) {
           }
         })();
       },
-      onUserInfoUpdated(uidMaybe: any, userInfoMaybe: any) {
+      onUserInfoUpdated(uidMaybe, userInfoMaybe) {
         const rawArgs = arguments as IArguments;
         let uid = uidMaybe;
         let userInfo = userInfoMaybe;
@@ -284,7 +290,7 @@ export default function RoomScreen({ navigation, route }: Props) {
         }
 
         console.log('[Agora] onUserInfoUpdated', uid, userInfo);
-        const account = userInfo?.userAccount;
+        const account = userInfo?.userAccount as string;
         const uidStr = String(uid);
 
         if (account) {
@@ -354,9 +360,15 @@ export default function RoomScreen({ navigation, route }: Props) {
 
     const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
     const q = query(reactionsRef, orderBy('createdAt', 'desc'), limit(1));
+    type change = {
+      type: 'added' | 'modified' | 'removed';
+      doc: {
+        data: () => { emoji: string; senderId: string | number; senderName: string; createdAt: { toMillis: () => number } | null };
+      };
+    }
     // 最新のリアクションを監視
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        snapshot?.docChanges().forEach((change: any) => {
+        snapshot?.docChanges().forEach((change: change) => {
           if (change.type === 'added') {
             const data = change.doc.data();
             // サーバー時刻がない場合(ローカル書き込み直後)は現在時刻扱い
@@ -539,17 +551,17 @@ export default function RoomScreen({ navigation, route }: Props) {
         localUserIdRef.current =
           effectiveAccount ?? (effectiveUid != null ? String(effectiveUid) : 'local');
       }
-    } catch (e: any) {
+    } catch (e) {
       console.log('[Agora] token error', e);
       console.log('[Agora] エラー詳細:', JSON.stringify(e));
-      setTokenError(e?.message || 'トークン取得失敗');
+      setTokenError( 'トークン取得失敗');
       setAgoraToken(null);
       crashlytics().recordError(e as Error);
     } finally {
       tokenLoadingRef.current = false;
       setTokenLoading(false);
     }
-  }, [roomId, initAgora, agoraToken]); // ← tokenLoading を依存から外した
+  }, [roomId, initAgora,  auth.currentUser]); // ← tokenLoading を依存から外した
 
   // 初回レンダリング時にトークン取得 & join
   useEffect(() => {
@@ -567,7 +579,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       }
     }, 60_000);
     return () => clearInterval(id);
-  }, [ fetchToken]);
+  }, [ fetchToken, auth.currentUser]);
 
   // クリーンアップ
   useEffect(() => {
@@ -836,12 +848,12 @@ export default function RoomScreen({ navigation, route }: Props) {
           position="absolute"
           bottom={REACTION_FAB_BOTTOM}
             right={REACTION_FAB_RIGHT}
-          bg={useColorModeValue('rgba(255,255,255,0.55)', 'rgba(250,250,250,0.18)')}
+          bg={reactionFabBg}
           borderWidth={1}
-          borderColor={useColorModeValue('rgba(255,255,255,0.25)', 'rgba(255,255,255,0.18)')}
-          _pressed={{ bg: useColorModeValue('rgba(255,255,255,0.20)', 'rgba(0,0,0,0.35)') }}
+          borderColor={reactionFabBorder}
+          _pressed={{ bg: reactionFabPressed }}
           shadow={4}            // やや弱め
-          icon={<Ionicons name="happy-outline" size={24} color={useColorModeValue('black', 'white')} />}
+          icon={<Ionicons name="happy-outline" size={24} color={reactionFabIconColor} />}
           onPress={() => setShowReaction(v => !v)}
         />
       </Box>
@@ -883,7 +895,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                 flexShrink={1}
                 //bg={useColorModeValue('rgba(30,30,30,0.55)', 'rgba(250,250,250,0.18)')}
                 borderWidth={1}
-                borderColor={useColorModeValue('rgba(255,255,255,0.28)', 'rgba(255,255,255,0.25)')}
+                borderColor={reactionTrayBorder}
                 rounded="full"
                 shadow={0}              // 影で巨大化見えするの防止
                 pointerEvents="auto"
@@ -897,7 +909,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                       alignItems="center"
                       justifyContent="center"
                       rounded="full"
-                      _pressed={{ bg: useColorModeValue('white:alpha.20', 'black:alpha.30') }}
+                      _pressed={{ bg: reactionItemPressed }}
                       hitSlop={8}
                       onPress={async () => {
                         console.log('Reaction:', emoji);

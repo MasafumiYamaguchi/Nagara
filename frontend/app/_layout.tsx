@@ -2,7 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NativeBaseProvider, useColorMode } from "native-base";
 import { initializeAuthObserver } from "../src/services/authService";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuthStore } from "../src/store/authStore";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { createNavigationContainerRef } from '@react-navigation/native';
@@ -19,8 +19,6 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 // ダークモード状態を管理するコンテキスト作成
-import { createContext } from "react";
-import { color } from "native-base/lib/typescript/theme/styled-system";
 import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 const ColorModeBridge: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -74,7 +72,7 @@ const theme = extendTheme({
   },
   components: {
     Heading: {
-      baseStyle: (props: Record<string, unknown>) => {
+      baseStyle: () => {
         return {
           _light: { color: 'gray.900' },
           _dark: { color: 'gray.100' },
@@ -82,7 +80,7 @@ const theme = extendTheme({
       },
     },
     Text: {
-      baseStyle: (props: Record<string, unknown>) => {
+      baseStyle: () => {
         return {
           bg: 'transparent',               // ← 追加：常に背景は透明
           _light: { color: 'gray.900' },
@@ -91,7 +89,7 @@ const theme = extendTheme({
       },
     },
     Input: {
-      baseStyle: (props: Record<string, unknown>) => {
+      baseStyle: () => {
         return {
           _light: { 
             bg: 'white', 
@@ -111,7 +109,7 @@ const theme = extendTheme({
       },
     },
     Button: {
-      baseStyle: (props: Record<string, unknown>) => {
+      baseStyle: () => {
         return {
           borderRadius: 'md',
         };
@@ -128,7 +126,7 @@ const theme = extendTheme({
         },
       },
       variants: {
-        solid: (props: Record<string, unknown>) => {
+        solid: () => {
           return {
           _light: {
             bg: 'blue.600',
@@ -160,7 +158,7 @@ const theme = extendTheme({
           },
         };
         },
-        outline: (props: Record<string, unknown>) => {
+        outline: () => {
           return {
           _light: {
             bg: 'transparent',
@@ -184,7 +182,7 @@ const theme = extendTheme({
           },
         };
         },
-        ghost: (props: Record<string, unknown>) => {
+        ghost: () => {
           return {
           _light: { 
             bg: 'transparent', 
@@ -207,7 +205,7 @@ const theme = extendTheme({
       },
     },
     TextArea: {
-      baseStyle: (props: Record<string, unknown>) => {
+      baseStyle: () => {
         return {
           _light: { 
             bg: 'white', 
@@ -231,7 +229,6 @@ const theme = extendTheme({
 
 export default function RootLayout() {
   const { user, isInitializing } = useAuthStore();
-  const systemColorScheme = useColorScheme();
   const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
 
   // 認証状態の監視

@@ -102,7 +102,7 @@ const Settings = ({ route, navigation }: Props) => {
           justifyContent="center"
         >
           <Ionicons 
-            name={icon as any} 
+            name="person-outline"
             size={20} 
             color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"} 
           />
@@ -172,7 +172,7 @@ const Settings = ({ route, navigation }: Props) => {
               justifyContent="center"
             >
               <Ionicons 
-                name={icon as any} 
+                name="person-outline"
                 size={20} 
                 color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"} 
               />

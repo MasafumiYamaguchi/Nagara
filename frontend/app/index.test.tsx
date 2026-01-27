@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { NativeBaseProvider } from 'native-base';
 import Index from './index'; // テスト対象のコンポーネントをインポート
-import { describe, beforeEach, expect, it } from '@jest/globals';
+import { jest, describe, expect, it } from '@jest/globals';
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./navigation/types";
 

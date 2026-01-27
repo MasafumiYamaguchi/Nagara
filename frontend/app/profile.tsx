@@ -11,7 +11,6 @@ import {
   ScrollView,
   useToast,
   Center,
-  Badge,
   useColorMode,
 } from "native-base";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,13 +26,13 @@ type TabParamList = {
   設定: undefined;
 };
 
-type Props = BottomTabScreenProps<TabParamList, 'プロフィール'>;
-
-const Profile = ({ route, navigation }: Props) => {
+const Profile = () => {
   const { user } = useAuthStore();
   const toast = useToast();
   const { colorMode: nativeBaseColorMode } = useColorMode();
 
+  // ログアウト処理
+  /*
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -48,14 +47,15 @@ const Profile = ({ route, navigation }: Props) => {
       });
     }
   };
+  */
 
   const ProfileMenuItem = ({ 
-    icon, 
+    icon,
     title, 
     subtitle, 
     onPress 
   }: { 
-    icon: string; 
+    icon: React.ReactNode;
     title: string; 
     subtitle?: string; 
     onPress?: () => void; 
@@ -83,7 +83,7 @@ const Profile = ({ route, navigation }: Props) => {
               justifyContent="center"
             >
               <Ionicons
-                name={icon as any}
+                name="person"
                 size={20}
                 color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"}
               />

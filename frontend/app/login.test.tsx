@@ -1,13 +1,14 @@
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { NativeBaseProvider } from 'native-base';
-import { describe, beforeEach, expect, it } from '@jest/globals';
+import { jest,describe, beforeEach, expect, it } from '@jest/globals';
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "./navigation/types";
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 type LoginProps = NativeStackScreenProps<RootStackParamList, "Login">;
 
-const mockSignInWithGoogle = jest.fn<() => Promise<{ user: { uid: string } }>>().mockResolvedValue({ user: { uid: 'test' } } as any);
+const mockSignInWithGoogle = jest.fn<() => Promise<{ user: { uid: string } }>>().mockResolvedValue({ user: { uid: 'test' } });
 const mockInitializeAuthObserver = jest.fn();
 const mockSignOut = jest.fn();
 const mockSetUser = jest.fn();
@@ -29,8 +30,15 @@ jest.mock('../src/services/authService', () => ({
     },
 }));
 
+type AuthState = {
+  user: FirebaseAuthTypes.User | null;
+  isInitializing: boolean;
+  setUser: (user: FirebaseAuthTypes.User | null) => void;
+  setInitializing: (isInitializing: boolean) => void;
+};
+
 jest.mock('../src/store/authStore', () => ({
-    useAuthStore: (selector: any) => selector({
+    useAuthStore: (selector: (state: AuthState) => unknown) => selector({
         user: null,
         isInitializing: false,
         setUser: mockSetUser,
@@ -94,14 +102,14 @@ jest.mock('native-base', () => {
 
     const wrap =
         (Comp = View) =>
-        function WrappedComponent({ children, ...props }: { children?: React.ReactNode; [key: string]: any }) {
+        function WrappedComponent({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) {
             return <Comp {...props}>{children}</Comp>;
         };
 
     return {
-        NativeBaseProvider: ({ children }: any) => <>{children}</>,
+        NativeBaseProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
         useToast: () => ({ show: jest.fn() }),
-        Button: ({ onPress, children, testID, accessibilityLabel }: any) => (
+        Button: ({ onPress, children, testID, accessibilityLabel }: { onPress: () => void; children: React.ReactNode; testID?: string; accessibilityLabel?: string }) => (
             <Pressable onPress={onPress} testID={testID} accessibilityLabel={accessibilityLabel}>
                 <Text>{children}</Text>
             </Pressable>
@@ -112,7 +120,7 @@ jest.mock('native-base', () => {
         Box: wrap(View),
         Stack: wrap(View),
         Heading: wrap(Text),
-        Icon: ({ children }: any) => <>{children}</>,
+        Icon: ({ children }: { children: React.ReactNode }) => <>{children}</>,
         Text,
     };
 });
@@ -136,7 +144,7 @@ describe('LoginScreen', () => {
         mockSetUser.mockClear();
         mockSetInitializing.mockClear();
         // モックの戻り値を毎回セットし直す
-        mockSignInWithGoogle.mockResolvedValue({ user: { uid: 'test' } } as any);
+        mockSignInWithGoogle.mockResolvedValue({ user: { uid: 'test' } } as { user: { uid: string } });
     });
 
     it('画面が正しく表示されること', async () => {

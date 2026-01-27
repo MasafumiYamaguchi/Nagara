@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box, Text, Input, ScrollView, VStack, HStack, Pressable, Badge, Divider,
   Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView, useColorMode, Modal
@@ -7,11 +7,9 @@ import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl, Alert, View } from "react-native"; // Viewを追加
 import Constants from 'expo-constants';
 import { initializeAuthObserver } from "../src/services/authService";
-import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { opacity } from "react-native-reanimated/lib/typescript/reanimated2/Colors";
 
 import crashlytics from '@react-native-firebase/crashlytics';
 
@@ -39,7 +37,6 @@ const Home = ({ route, navigation }: Props) => {
   const [nop, setNop] = useState(1);
   const [password, setPassword] = useState("");
 
-  const { colorMode } = useContext(ColorModeContext);
   const { colorMode: nativeBaseColorMode } = useColorMode();
 
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -62,9 +59,9 @@ const Home = ({ route, navigation }: Props) => {
       }
       const data: Room[] = await res.json();
       setRooms(data);
-    } catch (e: String | any) {
+    } catch (e: string | unknown) {
       console.error(e);
-      setError(e?.message ?? "ロードに失敗しました");
+      setError("ロードに失敗しました");
       crashlytics().recordError(e as Error);
     } finally {
       setLoading(false);
@@ -139,9 +136,9 @@ const Home = ({ route, navigation }: Props) => {
       }
       await fetchRooms();
       navigation.navigate("Room", { roomId: (await res.json()).id, name: roomName.trim(), nop: nop, password: password });
-    } catch (e: String | any) {
+    } catch (e: string | unknown) {
       console.error(e);
-      setError(e?.message ?? "作成に失敗しました");
+      setError("作成に失敗しました");
       crashlytics().recordError(e as Error);
     } finally {
       handleCancelCreate();

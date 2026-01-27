@@ -43,22 +43,24 @@ export default function LoginScreen({ navigation }: Props) {
         variant: "solid",
       });
       navigation.replace("Main");
-    } catch (error: any) {
+    } catch (error) {
       toast.show({
-        description: error.message || "Googleログインに失敗しました",
+        description:  "Googleログインに失敗しました",
         variant: "subtle",
         colorScheme: "danger",
       });
-      crashlytics().recordError(error);
+      crashlytics().recordError(error as Error);
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
   // 強制的にクラッシュさせる
+  /*
   const forceCrash = () => {
     crashlytics().crash();
   };
+  */
 
   return (
     <View style={styles.container} testID="loginScreen">
