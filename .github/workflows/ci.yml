@@ -15,12 +15,12 @@ jobs:
         with:
           xcode-version: '16.4'
 
-      - name: Setup Node.js and cache Yarn dependencies
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json' # キャッシュキーをより正確に
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Boot iOS Simulator
         run: open -a Simulator
@@ -32,12 +32,20 @@ jobs:
         run: npm ci
         working-directory: ./frontend
 
+      - name: Prebuild native projects (Expo)
+        run: npm run prebuild
+        working-directory: ./frontend
+        env:
+          DETOX_E2E: 'true'
+
       - name: Run Lint on rootproject
         run: npm run lint
+
       - name: Run Lint on frontend
         run: npm run lint
         working-directory: ./frontend
-      - name: Run Tests
+
+      - name: Run Unit Tests
         run: npm test
         working-directory: ./frontend
 
