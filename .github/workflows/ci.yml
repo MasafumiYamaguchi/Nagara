@@ -41,10 +41,12 @@ jobs:
         run: npm test
         working-directory: ./frontend
 
-      - name: Run E2E Tests
-        run: |
-          npm run detox -- --configuration ios.sim.debug --cleanup
-          npm run detox test -- --configuration ios.sim.debug
+      - name: Build E2E (Detox)
+        run: npm run test:e2e:ios:build
+        working-directory: ./frontend
+
+      - name: Run E2E Tests (Detox with Metro and .e2e resolution)
+        run: npm run test:e2e:ios:ci:with-metro
         working-directory: ./frontend
         env:
           DETOX_E2E: 'true'
