@@ -38,6 +38,13 @@ jobs:
         env:
           DETOX_E2E: 'true'
 
+      # ここを追加: Podsを入れる
+      - name: Install iOS pods
+        run: |
+          cd ios
+          pod install --repo-update
+        working-directory: ./frontend
+
       - name: Run Lint on rootproject
         run: npm run lint
 
