@@ -22,6 +22,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
+      # applesimutils を入れる（Detoxが使うやつ）
+      - name: Install applesimutils
+        run: |
+          brew tap wix/brew
+          brew install applesimutils
+
       - name: Boot iOS Simulator
         run: open -a Simulator
 
@@ -32,17 +38,33 @@ jobs:
         run: npm ci
         working-directory: ./frontend
 
+      # Podsキャッシュ
+      - name: Cache CocoaPods
+        uses: actions/cache@v3
+        with:
+          path: |
+            frontend/ios/Pods
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: ${{ runner.os }}-pods-${{ hashFiles('frontend/ios/Podfile.lock') }}
+
+      # Xcode DerivedDataキャッシュ
+      - name: Cache Xcode DerivedData
+        uses: actions/cache@v3
+        with:
+          path: frontend/ios/build
+          key: ${{ runner.os }}-derived-${{ hashFiles('frontend/ios/Tsuuwa.xcodeproj/project.pbxproj', 'frontend/package-lock.json') }}
+
       - name: Prebuild native projects (Expo)
         run: npm run prebuild
         working-directory: ./frontend
         env:
           DETOX_E2E: 'true'
 
-      # ここを追加: Podsを入れる
       - name: Install iOS pods
         run: |
           cd ios
-          pod install --repo-update
+          pod install --deployment
         working-directory: ./frontend
 
       - name: Run Lint on rootproject
