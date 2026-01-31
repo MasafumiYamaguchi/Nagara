@@ -58,15 +58,19 @@ const Settings = ({ route, navigation }: Props) => {
           onPress: async () => {
             try {
               await signOut();
-              toast.show({
-                title: "ログアウト完了",
-                description: "ログアウトしました"
-              });
+              setTimeout(() => {
+                toast.show({
+                  title: "ログアウト完了",
+                  description: "ログアウトしました"
+                });
+              }, 500);
             } catch (error) {
-              toast.show({
-                title: "エラー",
-                description: "ログアウトに失敗しました"
-              });
+              setTimeout(() => {
+                toast.show({
+                  title: "エラー",
+                  description: "ログアウトに失敗しました"
+                });
+            }, 500);
             }
           },
         },
@@ -249,29 +253,6 @@ const Settings = ({ route, navigation }: Props) => {
           />
         </Box>
 
-        {/* 通知設定 */}
-        <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
-            通知
-          </Heading>
-          
-          <SwitchItem
-            icon="notifications-outline"
-            title="プッシュ通知"
-            subtitle="アプリからの通知を受け取る"
-            value={pushNotifications}
-            onValueChange={setPushNotifications}
-          />
-          
-          <SwitchItem
-            icon="mail-outline"
-            title="メール通知"
-            subtitle="重要な更新をメールで受け取る"
-            value={emailNotifications}
-            onValueChange={setEmailNotifications}
-          />
-        </Box>
-
         {/* アプリ設定 */}
         <Box mx="4" mb="4">
           <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
@@ -286,13 +267,6 @@ const Settings = ({ route, navigation }: Props) => {
             onValueChange={() => {
               toggleColorMode();
             }}
-          />
-          
-          <SettingsItem
-            icon="language-outline"
-            title="言語"
-            subtitle="日本語"
-            onPress={() => console.log("言語設定")}
           />
           
           <SettingsItem

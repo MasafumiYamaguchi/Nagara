@@ -13,7 +13,7 @@ import { View, StyleSheet } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { RootStackParamList } from "./navigation/types";
-import { signInWithGoogle } from "../src/services/authService";
+import { signInWithGoogle, syncUserToFirestore } from "../src/services/authService";
 
 import { useAuthStore } from "../src/store/authStore";
 
@@ -37,12 +37,25 @@ export default function LoginScreen({ navigation }: Props) {
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      const result = await signInWithGoogle();
+      
+      if (result.user && result.googleProfile) {
+        // ★Google から直接取った最新の photoURL を Firestore に保存
+        console.log('[Google Profile] photoURL:', result.googleProfile.photoURL);
+        
+        await syncUserToFirestore({
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.googleProfile.displayName,
+          photoURL: result.googleProfile.photoURL,
+        });
+      }
+      
       toast.show({
         title: "Googleログイン成功",
         variant: "solid",
       });
-      navigation.replace("Main");
+      
     } catch (error) {
       toast.show({
         description:  "Googleログインに失敗しました",

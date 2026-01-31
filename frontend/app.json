@@ -52,6 +52,8 @@
       "@react-native-firebase/auth",
       "@react-native-firebase/dynamic-links",
       "@react-native-google-signin/google-signin",
+      "@react-native-firebase/crashlytics",
+      "@react-native-firebase/perf",
       [
         "expo-build-properties",
         { "ios": { "useFrameworks": "static" } }

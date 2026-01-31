@@ -22,6 +22,9 @@ import {
   PresenceTransition,
   Pressable,
   Menu,
+  Select,
+  CheckIcon,
+  Slider,
 } from 'native-base';
 import { AntDesign, Ionicons } from '@expo/vector-icons';
 import constants from 'expo-constants';
@@ -54,9 +57,9 @@ import { getAuth } from '@react-native-firebase/auth';
 import ReportUserDialog from './components/reportuserdialog';
 
 // BGM用意
-import { Audio } from 'expo-av';
-import bonfire from '../assets/music/bonfire.mp3';
-import brownnoise from '../assets/music/brownnoise.mp3';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+const BONFIRE_SRC = require('../assets/music/bonfire.mp3');
+const BROWNNOISE_SRC = require('../assets/music/brownnoise.mp3');
 
 // 参加者の情報
 interface Participant {
@@ -76,6 +79,9 @@ export default function RoomScreen({ navigation, route }: Props) {
   const [isMuted, setIsMuted] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [bgmSound, setBgmSound] = useState<Audio.Sound | null>(null);
+  const [selectedBgm, setSelectedBgm] = useState<'none' | 'bonfire' | 'brownnoise'>('none');
+  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
+  const [bgmVolume, setBgmVolume] = useState(0.4);
   // ★追加: 誰がどのリアクション中かを管理するState
   const [activeReactions, setActiveReactions] = useState<Record<string, string>>({});
 
@@ -113,6 +119,9 @@ export default function RoomScreen({ navigation, route }: Props) {
 
   // 追加: displayName キャッシュ（同じユーザーを何度も読まない）
   const nameCacheRef = useRef<Record<string, string>>({});
+  // 追加: アバターURLのキャッシュ
+  const avatarCacheRef = useRef<Record<string, string>>({});
+  const sessionTimestamp = useRef(Date.now());
   const reactionList = ['👍', '🎉', '😂', '😮', '😢', '🙏'];
   // 追加: リアクションボタンの見た目サイズ
   const REACTION_ITEM_SIZE = 36;
@@ -129,10 +138,107 @@ export default function RoomScreen({ navigation, route }: Props) {
   const [isOpenReportDialog, setIsOpenReportDialog] = useState(false);
   const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
 
-  // 追加/修正: Firestore から表示名を取得（RN Firebase流）
+  // BGM再生管理
+    useEffect(() => {
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,              // ← ここ重要！マイクを生かす
+        playsInSilentModeIOS: true,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: false,
+      }).catch(() => {});
+    }, []);
+
+  // BGMの読み込み＆再生（ループ）
+  const loadAndPlayBgm = useCallback(
+    async (key: 'bonfire' | 'brownnoise') => {
+      try {
+        if (bgmSound) {
+          await bgmSound.stopAsync().catch(() => {});
+          await bgmSound.unloadAsync().catch(() => {});
+        }
+        const source = key === 'bonfire' ? BONFIRE_SRC : BROWNNOISE_SRC;
+        const { sound } = await Audio.Sound.createAsync(source, {
+          shouldPlay: true,
+          isLooping: true,
+          volume: bgmVolume,
+        });
+        setBgmSound(sound);
+        setIsBgmPlaying(true);
+      } catch (e) {
+        console.warn('BGM load error', e);
+      }
+    },
+    [bgmSound, bgmVolume]
+  );
+
+  // セレクト変更時
+  const onChangeBgm = useCallback(
+    async (value: string) => {
+      const v = value as 'none' | 'bonfire' | 'brownnoise';
+      setSelectedBgm(v);
+      if (v === 'none') {
+        if (bgmSound) {
+          try { await bgmSound.stopAsync(); await bgmSound.unloadAsync(); } catch {}
+          setBgmSound(null);
+        }
+        setIsBgmPlaying(false);
+        return;
+      }
+      await loadAndPlayBgm(v);
+    },
+    [bgmSound, loadAndPlayBgm]
+  );
+
+  // 再生/一時停止トグル
+  const toggleBgm = useCallback(async () => {
+    if (selectedBgm === 'none') return;
+    if (!bgmSound) {
+      await loadAndPlayBgm(selectedBgm === 'bonfire' ? 'bonfire' : 'brownnoise');
+      return;
+    }
+    const st = await bgmSound.getStatusAsync();
+    if ('isPlaying' in st && st.isPlaying) {
+      await bgmSound.pauseAsync();
+      setIsBgmPlaying(false);
+    } else {
+      await bgmSound.playAsync();
+      setIsBgmPlaying(true);
+    }
+  }, [bgmSound, selectedBgm, loadAndPlayBgm]);
+
+  // 音量反映
+  useEffect(() => {
+    if (bgmSound) bgmSound.setVolumeAsync(bgmVolume).catch(() => {});
+  }, [bgmSound, bgmVolume]);
+
+  // アンマウント時にBGM解放
+  useEffect(() => {
+    return () => {
+      if (bgmSound) {
+        try { bgmSound.stopAsync(); bgmSound.unloadAsync(); } catch {}
+      }
+    };
+  }, [bgmSound]);
+
+  // 追加/修正: Firestore から表示名とアバターURLを取得
   const getDisplayName = useCallback(async (id: string) => {
     if (!id) return null;
-    if (nameCacheRef.current[id]) return nameCacheRef.current[id];
+
+    const authUser = auth.currentUser;
+    const myUid = authUser?.uid;
+
+    // キャッシュがあれば即反映
+    if (nameCacheRef.current[id]) {
+      const cachedPhoto = avatarCacheRef.current[id];
+      setParticipants(prev =>
+        prev.map(p =>
+          p.id === id ? { ...p, name: nameCacheRef.current[id], avatarUrl: cachedPhoto } : p
+        )
+      );
+      return nameCacheRef.current[id];
+    }
 
     try {
       const userRef = doc(db, 'users', id);
@@ -141,27 +247,68 @@ export default function RoomScreen({ navigation, route }: Props) {
       if (!userDoc.exists) {
         const fallback = `User ${id}`;
         nameCacheRef.current[id] = fallback;
+        setParticipants(prev =>
+          prev.map(p => (p.id === id ? { ...p, name: fallback } : p))
+        );
         return fallback;
       }
+
       const data = userDoc.data();
-      // displayName がない場合のフォールバックを拡張
-      const displayName =
-        (data?.displayName as string)
-        ?? `User ${id}`;
+      const displayName = (data?.displayName as string) ?? `User ${id}`;
+      
+      // ★修正: photoURL は Firestore から取る。自分の場合だけ Auth からフォールバック
+      let photoUrl = (data?.photoURL as string) ?? (data?.avatarUrl as string) ?? undefined;
+      
+      // 自分の場合のみ、Firestore に photoURL がなければ Auth から取る
+      if (!photoUrl && id === myUid && authUser?.photoURL) {
+        photoUrl = authUser.photoURL;
+      }
 
       nameCacheRef.current[id] = displayName;
+      if (photoUrl) {
+        avatarCacheRef.current[id] = photoUrl;
+      }
 
       setParticipants(prev =>
-        prev.map(p => (p.id === id ? { ...p, name: displayName } : p))
+        prev.map(p =>
+          p.id === id ? { ...p, name: displayName, avatarUrl: photoUrl } : p
+        )
       );
-      console.log('[Firestore] users/%s ->', id, data);
+
+      console.log('[Firestore] users/%s ->', id, { displayName, photoUrl: photoUrl?.slice(0, 50) });
       return displayName;
     } catch (e) {
       console.warn('getDisplayName failed', e);
       crashlytics().recordError(e as Error);
-      return `User ${id}`;
+      const fallback = `User ${id}`;
+      nameCacheRef.current[id] = fallback;
+      setParticipants(prev =>
+        prev.map(p => (p.id === id ? { ...p, name: fallback } : p))
+      );
+      return fallback;
     }
-  }, [db]);
+  }, [db, auth.currentUser]);
+
+    // トークン更新
+  const fetchNewTokenAndRenew = useCallback(async () => {
+    try {
+      const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
+      if (!res.ok) throw new Error('renew token fail');
+      const data = await res.json();
+      const expireMs =
+        data.expireAt
+          ? new Date(data.expireAt).getTime()
+          : Date.now() + ((data.expireSeconds ?? data.expireAtSeconds ?? 3600) * 1000);
+      tokenExpireAtRef.current = expireMs;
+      setAgoraToken(data.token);
+      if (engineRef.current) {
+        engineRef.current.renewToken(data.token);
+      }
+    } catch (error) {
+      console.error('Error renewing token:', error);
+      crashlytics().recordError(error as Error);
+    }
+  }, [roomId]);
 
   // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
   const engineRef = useRef<IRtcEngine | null>(null);
@@ -208,29 +355,36 @@ export default function RoomScreen({ navigation, route }: Props) {
         console.log('[Agora] join success uid=', uid);
         setAgoraUid(uid);
         joinedRef.current = true;
+
         const accountOrUid = uidAccountMapRef.current[uid] ?? uid;
         const localId = localUserIdRef.current ?? String(uid);
-        const displayName = await getDisplayName(accountOrUid); // ここ怪しいかも
+
+        // ★追加: ローカルはAuthのphotoURLを即反映しておく
+        const authUser = auth.currentUser;
+
+        const displayName = await getDisplayName(String(accountOrUid)); // ここ怪しいかも
         if (!displayName) return;
+
         setParticipants(prev => {
           const local =
             prev.find(p => p.id === 'local') ?? prev.find(p => p.id === localId);
           const me = {
             id: localId,
-            name: local?.name ?? `User ${localId}`,
+            name: local?.name ?? (authUser?.displayName ?? `User ${localId}`),
             isMuted: local?.isMuted ?? false,
-            avatarUrl: local?.avatarUrl,
+            avatarUrl: local?.avatarUrl ?? (authUser?.photoURL ?? undefined),
             speakingVolume: 0,
           };
           const others = prev.filter(p => p.id !== 'local' && p.id !== String(uid));
           return [me, ...others];
         });
+
         // account をキーにして名前を更新
         setParticipants(prev =>
           prev.map(p => (p.id === accountOrUid ? { ...p, name: displayName } : p))
         );
 
-        // 追加: Firestore から自分の表示名を取得して更新
+        // ★補足: Firestore名＆画像も最終的に同期（photoURL/ avatarUrl を取りこぼさない）
         getDisplayName(localId).catch(() => {});
       },
       onUserJoined: (_connection, remoteUid) => {
@@ -239,37 +393,37 @@ export default function RoomScreen({ navigation, route }: Props) {
         const initialId = uidAccountMapRef.current[uid] ?? uid;
         setParticipants(prev => {
           if (prev.some(p => p.id === initialId)) return prev;
-          return [...prev, { id: initialId, name: `User ${uid}`, isMuted: false }];
+          return [...prev, { id: initialId, name: `User ${uid}`, isMuted: false, avatarUrl: undefined }];
         });
 
-        // 非同期で表示名を取得してから更新する（即時更新だと名前が空のままになる）
+        // 非同期で表示名とアバターを取得
         (async () => {
           try {
+            // 少し待って onUserInfoUpdated が先に来てないかチェック
+            await new Promise(r => setTimeout(r, 300));
+            
             const accountOrUid = uidAccountMapRef.current[uid] ?? uid;
             const displayName = await getDisplayName(accountOrUid);
+            const avatarUrl = avatarCacheRef.current[accountOrUid];
+            
             if (!displayName) return;
 
-            // account をキーにして名前を更新
+            // ★修正: uid でも accountOrUid でもマッチするように更新
             setParticipants(prev =>
-              prev.map(p => (p.id === accountOrUid ? { ...p, name: displayName } : p))
+              prev.map(p => {
+                if (p.id === uid || p.id === accountOrUid) {
+                  return { 
+                    ...p, 
+                    id: accountOrUid, 
+                    name: displayName, 
+                    avatarUrl: avatarUrl ?? p.avatarUrl 
+                  };
+                }
+                return p;
+              })
             );
-
-            // もし最初に uidStr で追加していて account が別なら id も置き換える
-            if (accountOrUid !== uid) {
-              setParticipants(prev =>
-                prev.map(p => (p.id === uid ? { ...p, id: accountOrUid, name: displayName } : p))
-              );
-            }
           } catch (e) {
             console.warn('[Agora] getDisplayName error', e);
-            crashlytics().recordError(e as Error);
-          }
-
-          try {
-            const info = engine.getUserInfoByUid?.(remoteUid);
-            console.log('[Agora] getUserInfoByUid ->', info);
-          } catch (e) {
-            console.log('[Agora] getUserInfoByUid error', e);
             crashlytics().recordError(e as Error);
           }
         })();
@@ -303,7 +457,20 @@ export default function RoomScreen({ navigation, route }: Props) {
             return prev.map(p => (p.id === uidStr ? { ...p, id: account } : p));
           });
 
-          getDisplayName(account).catch(() => {});
+          // ★修正: 名前とアバター両方取得して反映
+          getDisplayName(account).then(() => {
+            const avatarUrl = avatarCacheRef.current[account];
+            const displayName = nameCacheRef.current[account];
+            if (displayName || avatarUrl) {
+              setParticipants(prev =>
+                prev.map(p =>
+                  p.id === account
+                    ? { ...p, name: displayName ?? p.name, avatarUrl: avatarUrl ?? p.avatarUrl }
+                    : p
+                )
+              );
+            }
+          }).catch(() => {});
         } else {
           getDisplayName(uidStr).catch(() => {});
         }
@@ -353,7 +520,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     });
 
     engineRef.current = engine;
-  }, [AGORA_APP_ID, getDisplayName]);
+  }, [getDisplayName, auth, agoraUid, fetchNewTokenAndRenew]);
 
   useEffect(() => {
     console.log('[Reaction] Start listening');
@@ -406,26 +573,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     }, 3000);
   }
 
-  // トークン更新
-  const fetchNewTokenAndRenew = useCallback(async () => {
-    try {
-      const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
-      if (!res.ok) throw new Error('renew token fail');
-      const data = await res.json();
-      const expireMs =
-        data.expireAt
-          ? new Date(data.expireAt).getTime()
-          : Date.now() + ((data.expireSeconds ?? data.expireAtSeconds ?? 3600) * 1000);
-      tokenExpireAtRef.current = expireMs;
-      setAgoraToken(data.token);
-      if (engineRef.current) {
-        engineRef.current.renewToken(data.token);
-      }
-    } catch (error) {
-      console.error('Error renewing token:', error);
-      crashlytics().recordError(error as Error);
-    }
-  }, [roomId]);
+
 
   // トークン取得（多重呼び出し防止 & 安定した関数参照にする）
   const fetchToken = useCallback(async (opts?: { force?: boolean }) => {
@@ -722,8 +870,10 @@ export default function RoomScreen({ navigation, route }: Props) {
             numColumns={2}
             showsVerticalScrollIndicator={false}
             renderItem={({ item: participant, index }) => {
-              // ★追加: 自分かどうか判定
               const isMe = participant.id === localUserIdRef.current;
+              
+              // ★デバッグ: 各参加者の avatarUrl を確認
+              console.log('[Avatar Debug]', participant.id, 'isMe:', isMe, 'url:', participant.avatarUrl?.slice(0, 50));
 
               return (
                 <Box
@@ -741,12 +891,19 @@ export default function RoomScreen({ navigation, route }: Props) {
                 >
                   <Box bg="black">
                     <Center flex={1} bg="gray.600" py={8}>
-                      <VStack space={2} alignItems="center">
-                        <Avatar size="lg" bg="blue.500" />
-                        <Text color="white" fontSize="md">
-                          {participant.name}
-                        </Text>
-                      </VStack>
+                      <Avatar
+                        size="xl"
+                        bg="gray.300"
+                        source={
+                          participant.avatarUrl
+                            ? { uri: `${participant.avatarUrl}?t=${sessionTimestamp.current}` }
+                            : undefined
+                        }
+                        borderWidth={(participant.speakingVolume ?? 0) > 50 ? 2 : 0}
+                        borderColor="blue.400"
+                      >
+                        {participant.name?.[0] ?? '?'}
+                      </Avatar>
                     </Center>
                   </Box>
 
@@ -791,17 +948,13 @@ export default function RoomScreen({ navigation, route }: Props) {
 
                   {/* ミュートバッジとか下の名前エリア */}
                   <Box p={3}>
-                    <HStack justifyContent="space-between" alignItems="center">
-                      <Text fontWeight="semibold" fontSize="md">
-                        {participant.name}
+                    <HStack alignItems="center" justifyContent="space-between">
+                      <Text numberOfLines={1} fontWeight="semibold">
+                        {participant.name ?? `User ${participant.id}`}
                       </Text>
-                      <HStack space={1}>
-                        {participant.isMuted && (
-                          <Badge bg="red.500" _text={{ color: 'white' }} variant="solid" size="sm">
-                            ミュート
-                          </Badge>
-                        )}
-                      </HStack>
+                      {participant.isMuted && (
+                        <Icon as={Ionicons} name="mic-off" size="sm" color="red.500" />
+                      )}
                     </HStack>
                   </Box>
                 </Box>
@@ -811,52 +964,111 @@ export default function RoomScreen({ navigation, route }: Props) {
       </Box>
 
       {/* フッター操作列 */}
-      <Box bg={headerBg} p={4} shadow={2} position="relative">
-        <HStack justifyContent="center" space={6}>
-          {/* ミュート/退出ボタン */}
-          <VStack alignItems="center">
-            <IconButton
-              size="lg"
-              bg={isMuted ? 'red.500' : 'green.500'}
-              _pressed={{ bg: isMuted ? 'red.600' : 'green.600' }}
-              rounded="full"
-              icon={<Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="white" />}
-              onPress={handleMuteToggle}
-            />
-              <Text fontSize="xs" mt={1}>
-                {isMuted ? 'ミュート解除' : 'ミュート'}
-              </Text>
+      <VStack>
+        {/* BGMコーナー（ミュート/退出の上） */}
+        <Box bg={headerBg} px={4} py={3} borderTopWidth={1} borderColor="coolGray.200">
+          <VStack space={2}>
+            <HStack alignItems="center" space={3} justifyContent="space-between">
+              <HStack space={3} alignItems="center" flex={1}>
+                <Icon as={Ionicons} name="musical-notes" size="sm" color="coolGray.500" />
+                <Select
+                  minW="56"
+                  selectedValue={selectedBgm}
+                  onValueChange={onChangeBgm}
+                  accessibilityLabel="BGM"
+                  placeholder="BGMを選択"
+                  _selectedItem={{ endIcon: <CheckIcon size="5" /> }}
+                >
+                  <Select.Item label="なし" value="none" />
+                  <Select.Item label="焚き火 (bonfire)" value="bonfire" />
+                  <Select.Item label="ブラウンノイズ" value="brownnoise" />
+                </Select>
+              </HStack>
+              <HStack space={2} alignItems="center">
+                <IconButton
+                  size="sm"
+                  rounded="full"
+                  bg="primary.500"
+                  _pressed={{ bg: 'primary.600' }}
+                  icon={<Ionicons name={isBgmPlaying ? 'pause' : 'play'} size={18} color="white" />}
+                  onPress={toggleBgm}
+                  isDisabled={selectedBgm === 'none'}
+                />
+                <IconButton
+                  size="sm"
+                  rounded="full"
+                  bg="coolGray.200"
+                  _pressed={{ bg: 'coolGray.300' }}
+                  icon={<Ionicons name="stop" size={18} color="black" />}
+                  onPress={async () => {
+                    if (bgmSound) {
+                      try { await bgmSound.stopAsync(); } catch {}
+                    }
+                    setIsBgmPlaying(false);
+                  }}
+                  isDisabled={selectedBgm === 'none'}
+                />
+              </HStack>
+            </HStack>
+            <HStack alignItems="center" space={2}>
+              <Icon as={Ionicons} name="volume-low" size="sm" color="coolGray.500" />
+              <Slider flex={1} value={bgmVolume} minValue={0} maxValue={1} step={0.05} onChange={setBgmVolume}>
+                <Slider.Track>
+                  <Slider.FilledTrack />
+                </Slider.Track>
+                <Slider.Thumb />
+              </Slider>
+              <Icon as={Ionicons} name="volume-high" size="sm" color="coolGray.500" />
+            </HStack>
           </VStack>
+        </Box>
+        <Box bg={headerBg} p={4} shadow={2} position="relative">
+          <HStack justifyContent="center" space={6}>
+            {/* ミュート/退出ボタン */}
+            <VStack alignItems="center">
+              <IconButton
+                size="lg"
+                bg={isMuted ? 'red.500' : 'green.500'}
+                _pressed={{ bg: isMuted ? 'red.600' : 'green.600' }}
+                rounded="full"
+                icon={<Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="white" />}
+                onPress={handleMuteToggle}
+              />
+                <Text fontSize="xs" mt={1}>
+                  {isMuted ? 'ミュート解除' : 'ミュート'}
+                </Text>
+            </VStack>
 
-          <VStack alignItems="center">
-            <IconButton
-              size="lg"
-              bg="red.500"
-              _pressed={{ bg: 'red.600' }}
-              rounded="full"
-              icon={<Ionicons name="call" size={24} color="white" />}
-              onPress={onOpen}
-            />
-              <Text fontSize="xs" mt={1}>
-                退出
-              </Text>
-          </VStack>
-        </HStack>
+            <VStack alignItems="center">
+              <IconButton
+                size="lg"
+                bg="red.500"
+                _pressed={{ bg: 'red.600' }}
+                rounded="full"
+                icon={<Ionicons name="call" size={24} color="white" />}
+                onPress={onOpen}
+              />
+                <Text fontSize="xs" mt={1}>
+                  退出
+                </Text>
+            </VStack>
+          </HStack>
 
-        {/* 透明ガラステイスト FAB */}
-        <Fab
-          position="absolute"
-          bottom={REACTION_FAB_BOTTOM}
-            right={REACTION_FAB_RIGHT}
-          bg={reactionFabBg}
-          borderWidth={1}
-          borderColor={reactionFabBorder}
-          _pressed={{ bg: reactionFabPressed }}
-          shadow={4}            // やや弱め
-          icon={<Ionicons name="happy-outline" size={24} color={reactionFabIconColor} />}
-          onPress={() => setShowReaction(v => !v)}
-        />
-      </Box>
+          {/* 透明ガラステイスト FAB */}
+          <Fab
+            position="absolute"
+            bottom={REACTION_FAB_BOTTOM}
+              right={REACTION_FAB_RIGHT}
+            bg={reactionFabBg}
+            borderWidth={1}
+            borderColor={reactionFabBorder}
+            _pressed={{ bg: reactionFabPressed }}
+            shadow={4}            // やや弱め
+            icon={<Ionicons name="happy-outline" size={24} color={reactionFabIconColor} />}
+            onPress={() => setShowReaction(v => !v)}
+          />
+        </Box>
+      </VStack>
 
       {/* リアクショントレー: フッターの外に絶対配置して layout 干渉させない */}
       {showReaction && (

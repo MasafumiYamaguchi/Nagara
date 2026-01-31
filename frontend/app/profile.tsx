@@ -19,6 +19,7 @@ import { signOut } from "../src/services/authService";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+type Props = BottomTabScreenProps<TabParamList, 'プロフィール'>;
 
 type TabParamList = {
   ホーム: undefined;
@@ -26,10 +27,11 @@ type TabParamList = {
   設定: undefined;
 };
 
-const Profile = () => {
+const Profile = ({ navigation }: Props) => {
   const { user } = useAuthStore();
   const toast = useToast();
   const { colorMode: nativeBaseColorMode } = useColorMode();
+  const sessionTimestamp = React.useRef(Date.now());
 
   // ログアウト処理
   /*
@@ -131,7 +133,9 @@ const Profile = () => {
             <Avatar
               size="xl"
               source={{
-                uri: user?.photoURL || undefined,
+                uri: user?.photoURL
+                  ? `${user.photoURL}?t=${sessionTimestamp.current}`
+                  : undefined,
               }}
               mb="4"
               bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
@@ -266,7 +270,7 @@ const Profile = () => {
             icon="shield-outline"
             title="プライバシー設定"
             subtitle="データとプライバシー"
-            onPress={() => console.log("プライバシー設定")}
+            onPress={() => navigation.getParent()?.navigate("Privacy")}
           />
           
           <ProfileMenuItem

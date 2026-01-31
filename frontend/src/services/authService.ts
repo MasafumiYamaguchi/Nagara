@@ -1,4 +1,4 @@
-import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential, FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
@@ -16,14 +16,38 @@ GoogleSignin.configure({
   forceCodeForRefreshToken: true, // オプション
 });
 
+// プロフィールのリロードを行う関数
+export async function reloadUserProfile() {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await user.reload();
+    const u = auth.currentUser;
+    if (!u) return;
+
+    const userRef = doc(db, 'users', u.uid);
+    const snap = await getDoc(userRef);
+    const existing = snap.data() ?? {};
+
+    await setDoc(userRef, {
+      uid: u.uid,
+      email: u.email,
+      displayName: u.displayName || existing.displayName || '名無し',
+      photoURL: u.photoURL || existing.photoURL || '',
+      updatedAt: serverTimestamp(),
+      ...(snap.exists() ? {} : { createdAt: serverTimestamp() }),
+    }, { merge: true });
+  } catch (e) {
+    console.warn('Failed to reload user profile', e);
+  }
+}
+
 // 認証状態の変更を監視し、Zustandストアを更新（モジュール式 onAuthStateChanged を使用）
 export function initializeAuthObserver() {
-  // useAuthStore を遅延読み込みして循環参照対策
   const { useAuthStore } = require('../store/authStore');
   const { setUser, setInitializing } = useAuthStore.getState();
 
   return onAuthStateChanged(auth, async (user) => {
-    // サインアウト時(user === null)は早期リターンしてFirestore操作を避ける
     if (!user) {
       setUser(null);
       if (useAuthStore.getState().isInitializing) {
@@ -32,20 +56,30 @@ export function initializeAuthObserver() {
       return;
     }
 
+    // ★削除: reload() は呼ばない（無限ループ防止）
+    // reload() はログイン時に login.tsx で呼ぶ
+
     setUser(user);
     if (useAuthStore.getState().isInitializing) {
       setInitializing(false);
     }
 
+    // Firestore への同期は既存データとマージ
     const userRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userRef);
+
+    const payload = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || '名無し',
+      photoURL: user.photoURL || '',
+      updatedAt: serverTimestamp(),
+    };
+
     if (!userDoc.exists()) {
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || '名無し',
-        createdAt: serverTimestamp(),
-      });
+      await setDoc(userRef, { ...payload, createdAt: serverTimestamp() });
+    } else {
+      await setDoc(userRef, payload, { merge: true });
     }
   });
 }
@@ -63,4 +97,15 @@ export const signInWithGoogle = async () => {
 
   return signInWithCredential(auth, googleCredential);
   
+}
+
+const syncUserToFirestore = async (user: FirebaseAuthTypes.User) => {
+  const userRef = doc(db, 'users', user.uid);
+  await setDoc(userRef, {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName || '名無し',
+    photoURL: user.photoURL,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
