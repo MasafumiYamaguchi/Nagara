@@ -63,6 +63,7 @@ jobs:
     runs-on: macos-latest
     needs: build-ios
     env:
+      NPM_CONFIG_LEGACY_PEER_DEPS: true
       DETOX_E2E: 'true'
       CI: 'true'
     steps:
