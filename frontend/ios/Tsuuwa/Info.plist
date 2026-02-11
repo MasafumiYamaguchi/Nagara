@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Tsuuwa</string>
+    <string>Nagara</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>$(PRODUCT_NAME)</string>
+    <string>Nagara</string>
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
@@ -27,14 +27,9 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>tsuuwa</string>
-          <string>com.company.tsuuwa</string>
-        </array>
-      </dict>
-      <dict>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>com.googleusercontent.apps.890979401267-9hfchfep2kvkcp2mf5jhvcj24matq5ea</string>
+          <string>nagara</string>
+          <string>com.company.nagara</string>
+          <string>com.googleusercontent.apps.890979401267-133n8fghk01g71oajod2vbh2kl07kohv</string>
         </array>
       </dict>
     </array>

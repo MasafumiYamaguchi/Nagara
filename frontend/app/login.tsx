@@ -13,11 +13,13 @@ import { View, StyleSheet } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { RootStackParamList } from "./navigation/types";
-import { signInWithGoogle, syncUserToFirestore } from "../src/services/authService";
+import { signInWithGoogle } from "../src/services/authService";
 
 import { useAuthStore } from "../src/store/authStore";
 
-import crashlytics from "@react-native-firebase/crashlytics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { log, getCrashlytics } from "@react-native-firebase/crashlytics";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -26,19 +28,12 @@ export default function LoginScreen({ navigation }: Props) {
   const toast = useToast();
   const user = useAuthStore((state) => state.user);
 
-  useEffect(() => {
-    crashlytics().log('LoginScreen mounted');
-    if (user) {
-      console.log('User logged in, navigating to Main');
-      navigation.replace('Main');
-    }
-  }, [user, navigation]);
+  const crashlytics = getCrashlytics();
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     try {
       const result = await signInWithGoogle();
-      
       if (result.user && result.googleProfile) {
         // ★Google から直接取った最新の photoURL を Firestore に保存
         console.log('[Google Profile] photoURL:', result.googleProfile.photoURL);
@@ -62,7 +57,7 @@ export default function LoginScreen({ navigation }: Props) {
         variant: "subtle",
         colorScheme: "danger",
       });
-      crashlytics().recordError(error as Error);
+      log(crashlytics, error as string);
     } finally {
       setIsGoogleLoading(false);
     }

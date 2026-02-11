@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Platform, PermissionsAndroid, Dimensions } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from './navigation/types';
@@ -26,7 +26,7 @@ import {
   CheckIcon,
   Slider,
 } from 'native-base';
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import constants from 'expo-constants';
 import {
   createAgoraRtcEngine,
@@ -180,7 +180,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       setSelectedBgm(v);
       if (v === 'none') {
         if (bgmSound) {
-          try { await bgmSound.stopAsync(); await bgmSound.unloadAsync(); } catch {}
+          try { await bgmSound.stopAsync(); await bgmSound.unloadAsync(); } finally {}
           setBgmSound(null);
         }
         setIsBgmPlaying(false);
@@ -873,7 +873,7 @@ export default function RoomScreen({ navigation, route }: Props) {
               const isMe = participant.id === localUserIdRef.current;
               
               // ★デバッグ: 各参加者の avatarUrl を確認
-              console.log('[Avatar Debug]', participant.id, 'isMe:', isMe, 'url:', participant.avatarUrl?.slice(0, 50));
+              //console.log('[Avatar Debug]', participant.id, 'isMe:', isMe, 'url:', participant.avatarUrl?.slice(0, 50));
 
               return (
                 <Box
@@ -889,6 +889,21 @@ export default function RoomScreen({ navigation, route }: Props) {
                   ml={index % 2 === 1 ? 2 : 0}
                   position="relative"
                 >
+                  {/* ★追加: リアクション表示（カード右上にオーバーレイ） */}
+                  {activeReactions[participant.id] && (
+                    <Box
+                      position="absolute"
+                      bottom={12}
+                      right={0}
+                      zIndex={30}
+                      bg="black:alpha.40"
+                      rounded="full"
+                      px={2}
+                      py={1}
+                    >
+                      <Text fontSize="2xl">{activeReactions[participant.id]}</Text>
+                    </Box>
+                  )}
                   <Box bg="black">
                     <Center flex={1} bg="gray.600" py={8}>
                       <Avatar

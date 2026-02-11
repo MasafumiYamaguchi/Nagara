@@ -4,8 +4,18 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack/lib/types
 import { RootStackParamList } from "./navigation/types";
 import { PermissionsAndroid, Platform } from 'react-native';
 import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Privacy">;
+
+const resetToS = async () => {
+    try {
+        await AsyncStorage.removeItem('acceptedToS');
+        console.log('ToS acceptance reset.');
+    } catch (error) {
+        console.error('Error resetting ToS acceptance:', error);
+    }
+}
 
 const PrivacyScreen = ({navigation, route}: Props) => {
 
@@ -51,6 +61,9 @@ const PrivacyScreen = ({navigation, route}: Props) => {
             </Button>
             <Button onPress={requestMicPermission}>
                 マイク許可をリクエスト
+            </Button>
+            <Button onPress={resetToS}>
+                ToS同意状態をリセット
             </Button>
         </VStack>
     </Box>

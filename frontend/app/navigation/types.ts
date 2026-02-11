@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   Index: undefined;
   Login: undefined;
+  ToS: undefined;
   Main: undefined; // BottomTabNavigatorを指す
   Register: undefined;
   Privacy: undefined;

@@ -2,14 +2,16 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NativeBaseProvider, useColorMode } from "native-base";
 import { initializeAuthObserver } from "../src/services/authService";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useAuthStore } from "../src/store/authStore";
-import { ActivityIndicator, useColorScheme, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { createNavigationContainerRef } from '@react-navigation/native';
 import { extendTheme } from "native-base";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import IndexScreen from "./index";
 import LoginScreen from "./login";
+import ToSScreen from "./tos";
 import { RootStackParamList } from "./navigation/types";
 import RegisterScreen from "./register";
 import BottomTabNavigator from "./tab/bottomtabnavigator"; // BottomTabNavigatorをインポート
@@ -23,11 +25,37 @@ const navigationRef = createNavigationContainerRef<RootStackParamList>();
 import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 const ColorModeBridge: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { colorMode, toggleColorMode } = useColorMode();
+  const { colorMode, setColorMode } = useColorMode();
+
+  useEffect(() => {
+    const run = async () => {
+      const stored = await AsyncStorage.getItem("colorMode");
+      if (stored === "dark") setColorMode("dark");
+      if (stored === "light") setColorMode("light");
+    };
+    run();
+  }, [setColorMode]);
+
+  const setColorModeWithPersist = React.useCallback(
+    (mode: "light" | "dark") => {
+      setColorMode(mode);
+      AsyncStorage.setItem("colorMode", mode);
+    },
+    [setColorMode],
+  );
+
+  const toggleColorMode = React.useCallback(() => {
+    const next = colorMode === "light" ? "dark" : "light";
+    setColorModeWithPersist(next);
+  }, [colorMode, setColorModeWithPersist]);
 
   const value = React.useMemo(
-    () => ({ colorMode: colorMode as "light" | "dark", toggleColorMode }),
-    [colorMode, toggleColorMode],
+    () => ({
+      colorMode: colorMode as "light" | "dark",
+      toggleColorMode,
+      setColorMode: setColorModeWithPersist,
+    }),
+    [colorMode, toggleColorMode, setColorModeWithPersist],
   );
 
   return (
@@ -228,9 +256,13 @@ const theme = extendTheme({
   },
 });
 
+const getAcceptedToS = async (): Promise<boolean> => {
+  const v = await AsyncStorage.getItem('acceptedToS');
+  return v === 'true';
+};
+
 export default function RootLayout() {
   const { user, isInitializing } = useAuthStore();
-  const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
 
   // 認証状態の監視
   useEffect(() => {
@@ -240,16 +272,26 @@ export default function RootLayout() {
 
   // ユーザー状態の変更を監視して画面を切り替え
   useEffect(() => {
-    if (navigationRef.isReady() && user) {
-      navigationRef.navigate("Main");
-    } else if (navigationRef.isReady() && !user && !isInitializing) {
-      navigationRef.navigate("Index");
-    }
-  }, [user, isInitializing]);
+    const run = async () => {
+      if (!navigationRef.isReady()) return;
 
-  const toggleColorMode = () => {
-    setColorMode(prev => prev === 'light' ? 'dark' : 'light');
-  };
+      if (user) {
+        const accepted = await getAcceptedToS();
+        if (!accepted) {
+          navigationRef.navigate('ToS');
+          return;
+        }
+        navigationRef.navigate('Main');
+        return;
+      }
+
+      if (!user && !isInitializing) {
+        navigationRef.navigate('Index');
+      }
+    };
+
+    run();
+  }, [user, isInitializing]);
 
   // 認証状態が初期化中の場合はローディング画面を表示
   if (isInitializing) {
@@ -263,26 +305,25 @@ export default function RootLayout() {
   }
 
   return (
-    <ColorModeContext.Provider value={{ colorMode, toggleColorMode }}>
-      <NativeBaseProvider theme={theme} >
-        <ColorModeBridge>
-          <NavigationContainer ref={navigationRef}>
-            <Stack.Navigator
-              initialRouteName={user ? "Main" : "Index"}
-              screenOptions={{
-                headerShown: false,
-              }}
-            >
-              <Stack.Screen name="Index" component={IndexScreen} />
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Main" component={BottomTabNavigator} />
-              <Stack.Screen name="Register" component={RegisterScreen} />
-              <Stack.Screen name="Room" component={RoomScreen} />
-              <Stack.Screen name="Privacy" component={PrivacyScreen} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </ColorModeBridge>
-      </NativeBaseProvider>
-    </ColorModeContext.Provider>
+    <NativeBaseProvider theme={theme} >
+      <ColorModeBridge>
+        <NavigationContainer ref={navigationRef}>
+          <Stack.Navigator
+            initialRouteName={user ? "Main" : "Index"}
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="Index" component={IndexScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="ToS" component={ToSScreen} />
+            <Stack.Screen name="Main" component={BottomTabNavigator} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Room" component={RoomScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </ColorModeBridge>
+    </NativeBaseProvider>
   );
 }

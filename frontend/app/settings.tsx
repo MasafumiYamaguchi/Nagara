@@ -5,12 +5,9 @@ import {
   HStack,
   Text,
   Heading,
-  Switch,
   Pressable,
   ScrollView,
   Button,
-  useToast,
-  Divider,
   Center,
   Icon,
   useColorMode,
@@ -18,7 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../src/store/authStore";
 import { signOut } from "../src/services/authService";
-import { Alert } from "react-native";
+import { Alert, Switch as RNSwitch } from "react-native";
 import { ColorModeContext } from "./hooks/ColorModeContext ";
 
 // Bottom Tab用の型定義をインポート
@@ -34,13 +31,11 @@ type Props = BottomTabScreenProps<TabParamList, '設定'>;
 
 const Settings = ({ route, navigation }: Props) => {
   const { user } = useAuthStore();
-  const toast = useToast();
   
   // 設定状態の管理
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const { colorMode, toggleColorMode } = useContext(ColorModeContext);
+  const { colorMode, setColorMode } = useContext(ColorModeContext);
   const { colorMode: nativeBaseColorMode } = useColorMode();
 
   const handleSignOut = async () => {
@@ -58,19 +53,9 @@ const Settings = ({ route, navigation }: Props) => {
           onPress: async () => {
             try {
               await signOut();
-              setTimeout(() => {
-                toast.show({
-                  title: "ログアウト完了",
-                  description: "ログアウトしました"
-                });
-              }, 500);
+              console.log('User logged out');
             } catch (error) {
-              setTimeout(() => {
-                toast.show({
-                  title: "エラー",
-                  description: "ログアウトに失敗しました"
-                });
-            }, 500);
+              console.log('Logout error', error);
             }
           },
         },
@@ -128,11 +113,10 @@ const Settings = ({ route, navigation }: Props) => {
             </Text>
           )}
         </VStack>
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          colorScheme="blue"
-        />
+          <RNSwitch
+            value={value}
+            onValueChange={onValueChange}
+          />
       </HStack>
     </Box>
   );
@@ -214,7 +198,7 @@ const Settings = ({ route, navigation }: Props) => {
     <ScrollView bg={nativeBaseColorMode === "dark" ? "gray.900" : "gray.50"} flex={1}>
       <Box>
         {/* ヘッダー */}
-        <Box p="6" mb="4">
+        <Box p="6" mb="4" pt="16">
           <Center>
             <Heading size="lg" color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}>
               設定
@@ -239,13 +223,6 @@ const Settings = ({ route, navigation }: Props) => {
           />
           
           <SettingsItem
-            icon="key-outline"
-            title="パスワード変更"
-            subtitle="パスワードを変更"
-            onPress={() => console.log("パスワード変更")}
-          />
-          
-          <SettingsItem
             icon="shield-outline"
             title="セキュリティ"
             subtitle="二段階認証、ログイン履歴"
@@ -264,8 +241,8 @@ const Settings = ({ route, navigation }: Props) => {
             title="ダークモード"
             subtitle="暗いテーマを使用"
             value={colorMode === 'dark'}
-            onValueChange={() => {
-              toggleColorMode();
+            onValueChange={(value) => {
+              setColorMode(value ? "dark" : "light");
             }}
           />
           

@@ -27,7 +27,7 @@ export default function Index({ route, navigation }: Props) {
     <View style={styles.container} testID="indexScreen">
       <VStack space={4} alignItems="center">
         <Heading size="xl" color="coolGray.800">
-          Tsuuwa
+          Nagara
         </Heading>
         <Text fontSize="md" color="coolGray.600" textAlign="center">
           音声通話アプリへようこそ
@@ -40,15 +40,6 @@ export default function Index({ route, navigation }: Props) {
             onPress={() => navigation.navigate("Login")}
           >
             ログイン
-          </Button>
-
-          <Button
-            variant="outline"
-            colorScheme="indigo"
-            size="lg"
-            onPress={() => navigation.navigate("Main")}
-          >
-            ホームへ
           </Button>
         </VStack>
       </VStack>

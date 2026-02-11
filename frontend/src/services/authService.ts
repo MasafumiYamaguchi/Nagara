@@ -1,4 +1,4 @@
-import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential, FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
@@ -97,15 +97,4 @@ export const signInWithGoogle = async () => {
 
   return signInWithCredential(auth, googleCredential);
   
-}
-
-const syncUserToFirestore = async (user: FirebaseAuthTypes.User) => {
-  const userRef = doc(db, 'users', user.uid);
-  await setDoc(userRef, {
-    uid: user.uid,
-    email: user.email,
-    displayName: user.displayName || '名無し',
-    photoURL: user.photoURL,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
 }

@@ -9,13 +9,12 @@ import {
   Divider,
   Pressable,
   ScrollView,
-  useToast,
   Center,
   useColorMode,
 } from "native-base";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../src/store/authStore";
-import { signOut } from "../src/services/authService";
+import EditProfile from "./components/editprofile";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -29,9 +28,9 @@ type TabParamList = {
 
 const Profile = ({ navigation }: Props) => {
   const { user } = useAuthStore();
-  const toast = useToast();
   const { colorMode: nativeBaseColorMode } = useColorMode();
   const sessionTimestamp = React.useRef(Date.now());
+  const [isOpenEditProfile, setIsOpenEditProfile] = React.useState(false);
 
   // ログアウト処理
   /*
@@ -52,12 +51,10 @@ const Profile = ({ navigation }: Props) => {
   */
 
   const ProfileMenuItem = ({ 
-    icon,
     title, 
     subtitle, 
     onPress 
   }: { 
-    icon: React.ReactNode;
     title: string; 
     subtitle?: string; 
     onPress?: () => void; 
@@ -253,34 +250,36 @@ const Profile = ({ navigation }: Props) => {
           </Heading>
           
           <ProfileMenuItem
-            icon="person-outline"
             title="プロフィール編集"
             subtitle="名前や写真を変更"
-            onPress={() => console.log("プロフィール編集")}
+            onPress={() => setIsOpenEditProfile(true)}
           />
           
           <ProfileMenuItem
-            icon="notifications-outline"
             title="通知設定"
             subtitle="プッシュ通知の管理"
             onPress={() => console.log("通知設定")}
           />
           
           <ProfileMenuItem
-            icon="shield-outline"
             title="プライバシー設定"
             subtitle="データとプライバシー"
             onPress={() => navigation.getParent()?.navigate("Privacy")}
           />
           
           <ProfileMenuItem
-            icon="help-circle-outline"
             title="ヘルプ・サポート"
             subtitle="よくある質問とお問い合わせ"
             onPress={() => console.log("ヘルプ")}
           />
         </Box>
-
+          {/* プロフィール編集モーダル */}
+          {isOpenEditProfile && (
+          <EditProfile
+            isOpen={isOpenEditProfile}
+            onClose={() => setIsOpenEditProfile(false)}
+            reportedUserId={user?.uid || ""}
+          />)}
       </Box>
     </ScrollView>
   );
