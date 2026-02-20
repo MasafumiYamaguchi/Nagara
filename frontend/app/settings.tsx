@@ -13,10 +13,13 @@ import {
   useColorMode,
 } from "native-base";
 import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons as IonIconsType } from "@expo/vector-icons";
 import { useAuthStore } from "../src/store/authStore";
 import { signOut } from "../src/services/authService";
 import { Alert, Switch as RNSwitch } from "react-native";
 import { ColorModeContext } from "./hooks/ColorModeContext ";
+
+import AppInfo from "./components/appinfo";
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -33,10 +36,11 @@ const Settings = ({ route, navigation }: Props) => {
   const { user } = useAuthStore();
   
   // 設定状態の管理
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
   const { colorMode, setColorMode } = useContext(ColorModeContext);
   const { colorMode: nativeBaseColorMode } = useColorMode();
+
+  // モーダルの状態管理
+  const [isOpenAppInfo, setIsOpenAppInfo] = useState(false);
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -69,18 +73,27 @@ const Settings = ({ route, navigation }: Props) => {
     subtitle, 
     value,
     onValueChange,
+    isDev,
   }: { 
-    icon: string; 
+    icon: keyof typeof Ionicons.glyphMap; 
     title: string; 
     subtitle?: string; 
     value: boolean;
     onValueChange: (value: boolean) => void;
+    isDev?: boolean;
   }) => (
-    <Box 
-      bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"} 
-      p="1" 
-      borderRadius="md" 
-      mb="1"
+    <Box
+      bg={
+        isDev
+          ? (nativeBaseColorMode === "dark" ? "gray.900" : "gray.200")
+          : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
+      }
+      opacity={isDev ? 0.6 : 1}
+      p="4"
+      borderRadius="md"
+      mb="2"
+      borderWidth={1}
+      borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
     >
       <HStack space={3} alignItems="center">
         <Box
@@ -91,19 +104,36 @@ const Settings = ({ route, navigation }: Props) => {
           justifyContent="center"
         >
           <Ionicons 
-            name="person-outline"
+            name={icon}
             size={20} 
             color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"} 
           />
         </Box>
         <VStack flex={1}>
-          <Text 
-            fontSize="md" 
-            fontWeight="medium" 
-            color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
-          >
-            {title}
-          </Text>
+          <HStack alignItems="center" space={2}>
+            <Text 
+              fontSize="md" 
+              fontWeight="medium" 
+              color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+            >
+              {title}
+            </Text>
+            {isDev && (
+              <Box
+                bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.300"}
+                px="2"
+                py="0.5"
+                borderRadius="full"
+              >
+                <Text
+                  fontSize="xs"
+                  color={nativeBaseColorMode === "dark" ? "gray.200" : "gray.700"}
+                >
+                  開発中
+                </Text>
+              </Box>
+            )}
+          </HStack>
           {subtitle && (
             <Text 
               fontSize="sm" 
@@ -113,10 +143,11 @@ const Settings = ({ route, navigation }: Props) => {
             </Text>
           )}
         </VStack>
-          <RNSwitch
-            value={value}
-            onValueChange={onValueChange}
-          />
+        <RNSwitch
+          value={value}
+          onValueChange={onValueChange}
+          disabled={isDev}
+        />
       </HStack>
     </Box>
   );
@@ -127,29 +158,31 @@ const Settings = ({ route, navigation }: Props) => {
     subtitle, 
     onPress,
     rightElement,
+    isDev,
   }: { 
-    icon: string; 
+    icon: keyof typeof Ionicons.glyphMap; 
     title: string; 
     subtitle?: string; 
     onPress?: () => void;
     rightElement?: React.ReactNode;
-  }) => {
-    const [pressed, setPressed] = useState(false);
-
-    return (
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
-      >
+    isDev?: boolean;
+  }) => (
+    <Pressable onPress={onPress} disabled={isDev}>
+      {({ isPressed }) => (
         <Box
-          bg={pressed 
-            ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100") 
-            : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
+          bg={
+            isDev
+              ? (nativeBaseColorMode === "dark" ? "gray.900" : "gray.200")
+              : isPressed
+                ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100")
+                : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
           }
-          p="1"
+          opacity={isDev ? 0.6 : 1}
+          p="4"
           borderRadius="md"
-          mb="1"
+          mb="2"
+          borderWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
         >
           <HStack space={3} alignItems="center">
             <Box
@@ -160,19 +193,36 @@ const Settings = ({ route, navigation }: Props) => {
               justifyContent="center"
             >
               <Ionicons 
-                name="person-outline"
+                name={icon}
                 size={20} 
                 color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"} 
               />
             </Box>
             <VStack flex={1}>
-              <Text 
-                fontSize="md" 
-                fontWeight="medium" 
-                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
-              >
-                {title}
-              </Text>
+              <HStack alignItems="center" space={2}>
+                <Text 
+                  fontSize="md" 
+                  fontWeight="medium" 
+                  color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+                >
+                  {title}
+                </Text>
+                {isDev && (
+                  <Box
+                    bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.300"}
+                    px="2"
+                    py="0.5"
+                    borderRadius="full"
+                  >
+                    <Text
+                      fontSize="xs"
+                      color={nativeBaseColorMode === "dark" ? "gray.200" : "gray.700"}
+                    >
+                      開発中
+                    </Text>
+                  </Box>
+                )}
+              </HStack>
               {subtitle && (
                 <Text 
                   fontSize="sm" 
@@ -182,17 +232,19 @@ const Settings = ({ route, navigation }: Props) => {
                 </Text>
               )}
             </VStack>
-            {rightElement || <Icon
-              as={Ionicons}
-              name="chevron-forward" 
-              size={16} 
-              color={nativeBaseColorMode === "dark" ? "gray.600" : "gray.300"} 
-            />}
+            {rightElement ?? (
+              <Icon
+                as={Ionicons}
+                name="chevron-forward" 
+                size={4} 
+                color={nativeBaseColorMode === "dark" ? "gray.600" : "gray.300"} 
+              />
+            )}
           </HStack>
         </Box>
-      </Pressable>
-    );
-  };
+      )}
+    </Pressable>
+  );
 
   return (
     <ScrollView bg={nativeBaseColorMode === "dark" ? "gray.900" : "gray.50"} flex={1}>
@@ -209,27 +261,6 @@ const Settings = ({ route, navigation }: Props) => {
           </Center>
         </Box>
 
-        {/* アカウント設定 */}
-        <Box mx="4" mb="4">
-          <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
-            アカウント
-          </Heading>
-          
-          <SettingsItem
-            icon="person-outline"
-            title="プロフィール"
-            subtitle="名前、写真、基本情報"
-            onPress={() => console.log("プロフィール設定")}
-          />
-          
-          <SettingsItem
-            icon="shield-outline"
-            title="セキュリティ"
-            subtitle="二段階認証、ログイン履歴"
-            onPress={() => console.log("セキュリティ設定")}
-          />
-        </Box>
-
         {/* アプリ設定 */}
         <Box mx="4" mb="4">
           <Heading size="sm" mb="3" color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"} px="2">
@@ -244,13 +275,14 @@ const Settings = ({ route, navigation }: Props) => {
             onValueChange={(value) => {
               setColorMode(value ? "dark" : "light");
             }}
+            isDev={false}
           />
           
           <SettingsItem
             icon="information-circle-outline"
             title="アプリについて"
             subtitle="バージョン 1.0.0"
-            onPress={() => console.log("アプリ情報")}
+            onPress={() => setIsOpenAppInfo(true)}
           />
         </Box>
 
@@ -264,14 +296,14 @@ const Settings = ({ route, navigation }: Props) => {
             icon="help-circle-outline"
             title="ヘルプ"
             subtitle="よくある質問"
-            onPress={() => console.log("ヘルプ")}
+            onPress={() => navigation.navigate("HelpAndSupport")}
           />
           
           <SettingsItem
             icon="chatbubble-outline"
             title="お問い合わせ"
             subtitle="サポートチームに連絡"
-            onPress={() => console.log("お問い合わせ")}
+            onPress={() => navigation.navigate("Support")}
           />
         </Box>
 
@@ -297,6 +329,10 @@ const Settings = ({ route, navigation }: Props) => {
           </Box>
         )}
       </Box>
+      {/* アプリ情報モーダル */}
+      {isOpenAppInfo && (
+        <AppInfo isOpen={isOpenAppInfo} onClose={() => setIsOpenAppInfo(false)} />
+      )}
     </ScrollView>
   );
 };

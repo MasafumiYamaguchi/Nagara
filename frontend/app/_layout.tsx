@@ -17,6 +17,8 @@ import RegisterScreen from "./register";
 import BottomTabNavigator from "./tab/bottomtabnavigator"; // BottomTabNavigatorをインポート
 import RoomScreen from "./room";
 import PrivacyScreen from "./privacy";
+import HelpAndSupport from "./helpandsupport";
+import Support from "./support"; // Support画面をインポート
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
@@ -321,6 +323,8 @@ export default function RootLayout() {
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="Room" component={RoomScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
+            <Stack.Screen name="HelpAndSupport" component={HelpAndSupport} />
+            <Stack.Screen name="Support" component={Support} />
           </Stack.Navigator>
         </NavigationContainer>
       </ColorModeBridge>

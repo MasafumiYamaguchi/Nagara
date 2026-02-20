@@ -53,20 +53,25 @@ const Profile = ({ navigation }: Props) => {
   const ProfileMenuItem = ({ 
     title, 
     subtitle, 
-    onPress 
+    onPress,
+    isDev 
   }: { 
     title: string; 
     subtitle?: string; 
     onPress?: () => void; 
+    isDev?: boolean;
   }) => (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} disabled={isDev}>
       {({ isPressed }) => (
         <Box
           bg={
-            isPressed
-              ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100")
-              : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
+            isDev
+              ? (nativeBaseColorMode === "dark" ? "gray.900" : "gray.200")
+              : isPressed
+                ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100")
+                : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
           }
+          opacity={isDev ? 0.6 : 1}
           p="4"
           borderRadius="md"
           mb="2"
@@ -88,13 +93,30 @@ const Profile = ({ navigation }: Props) => {
               />
             </Box>
             <VStack flex={1}>
-              <Text
-                fontSize="md"
-                fontWeight="medium"
-                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
-              >
-                {title}
-              </Text>
+              <HStack alignItems="center" space={2}>
+                <Text
+                  fontSize="md"
+                  fontWeight="medium"
+                  color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+                >
+                  {title}
+                </Text>
+                {isDev && (
+                  <Box
+                    bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.300"}
+                    px="2"
+                    py="0.5"
+                    borderRadius="full"
+                  >
+                    <Text
+                      fontSize="xs"
+                      color={nativeBaseColorMode === "dark" ? "gray.200" : "gray.700"}
+                    >
+                      開発中
+                    </Text>
+                  </Box>
+                )}
+              </HStack>
               {subtitle && (
                 <Text
                   fontSize="sm"
@@ -246,12 +268,12 @@ const Profile = ({ navigation }: Props) => {
             color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"}
             px="2"
           >
-            設定
+            詳細設定
           </Heading>
           
           <ProfileMenuItem
             title="プロフィール編集"
-            subtitle="名前や写真を変更"
+            subtitle="プロフィール文を変更"
             onPress={() => setIsOpenEditProfile(true)}
           />
           
@@ -259,6 +281,7 @@ const Profile = ({ navigation }: Props) => {
             title="通知設定"
             subtitle="プッシュ通知の管理"
             onPress={() => console.log("通知設定")}
+            isDev={true}
           />
           
           <ProfileMenuItem
@@ -266,12 +289,7 @@ const Profile = ({ navigation }: Props) => {
             subtitle="データとプライバシー"
             onPress={() => navigation.getParent()?.navigate("Privacy")}
           />
-          
-          <ProfileMenuItem
-            title="ヘルプ・サポート"
-            subtitle="よくある質問とお問い合わせ"
-            onPress={() => console.log("ヘルプ")}
-          />
+        
         </Box>
           {/* プロフィール編集モーダル */}
           {isOpenEditProfile && (

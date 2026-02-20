@@ -1,6 +1,7 @@
 import React from "react";
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useColorMode } from "native-base";
 
 // 画面コンポーネントをインポート（パスを修正）
 import HomeScreen from '../home';
@@ -17,6 +18,7 @@ type TabParamList = {
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const BottomTabNavigator = () => {
+  const { colorMode } = useColorMode();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -42,10 +44,12 @@ const BottomTabNavigator = () => {
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
-          paddingBottom: 5,
+          paddingBottom: 0,
           height: 60,
         },
         headerShown: false,
+        tabBarActiveBackgroundColor: colorMode === 'dark' ? '#222' : '#fff',
+        tabBarInactiveBackgroundColor: colorMode === 'dark' ? '#222' : '#fff',
       })}
     >
       <Tab.Screen 
