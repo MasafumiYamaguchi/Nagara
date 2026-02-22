@@ -7,6 +7,7 @@ import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl, Alert, View } from "react-native"; // Viewを追加
 import Constants from 'expo-constants';
 import { initializeAuthObserver } from "../src/services/authService";
+import auth from '@react-native-firebase/auth';
 
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -47,12 +48,26 @@ const Home = ({ route, navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const user = auth().currentUser;
+    if (!user) throw new Error("ログインしてない");
+    const idToken = await user.getIdToken();
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+  };
+
   const fetchRooms = async () => {
     setLoading(true);
     setError(null);
     try {
       console.log("API_BASE_URL:", API_BASE_URL);
-      const res = await fetch(`${API_BASE_URL}/rooms`);
+      const res = await authFetch(`${API_BASE_URL}/rooms`);
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`GET /rooms failed: ${res.status} ${res.statusText} ${text}`);
@@ -83,7 +98,7 @@ const Home = ({ route, navigation }: Props) => {
   // 部屋を選択したときの処理
   const handleRoomPress = async (roomId: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/rooms/${roomId}`);
+      const res = await authFetch(`${API_BASE_URL}/rooms/${roomId}`);
       if (!res.ok) {
         Alert.alert('参加に失敗しました', `エラーコード: ${res.status}`, [
           { text: 'OK', onPress: () => console.log('OK Pressed') },
@@ -125,10 +140,15 @@ const Home = ({ route, navigation }: Props) => {
   const handleCreateRoom = async () => {
     if (!roomName.trim()) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/rooms`, {
+      const res = await authFetch(`${API_BASE_URL}/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: roomName.trim(), description: roomDesc.trim(), nop: nop, password: password }),
+        body: JSON.stringify({
+          name: roomName.trim(),
+          description: roomDesc.trim(),
+          nop: nop,
+          password: password,
+        }),
       });
       if (!res.ok) {
         const text = await res.text();

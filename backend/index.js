@@ -74,7 +74,7 @@ app.post('/rooms', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Room name is required' });
     }
     const newRoom = await prisma.room.create({
-      data: { name, description: description || '', nop, password: password || '' },
+      data: { name, description: description || '', nop, password: password || '', creatorUid },
     });
     res.status(201).json(newRoom);
   } catch (e) {
