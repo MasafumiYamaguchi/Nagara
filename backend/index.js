@@ -4,6 +4,9 @@ const dotenv = require('dotenv');
 const { Pool } = require('pg');
 const { PrismaClient } = require('@prisma/client');
 const { buildRtcToken } = require('./rtc/agoraToken');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const serviceAccount = require('./key/service_accountKey.json');
 
 dotenv.config();
 
@@ -28,6 +31,28 @@ const prisma = new PrismaClient();
   }
 })();
 
+// Firebase Admin周りの処理
+const firebaseApp = initializeApp({
+  credential: cert(serviceAccount),
+});
+
+// 認証用ミドルウェア
+const authenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const idToken = authHeader.split(' ')[1];
+  try {
+    const decodedToken = await getAuth(firebaseApp).verifyIdToken(idToken);
+    req.user = decodedToken; // 認証情報をリクエストオブジェクトに追加
+    return next();
+  } catch (e) {
+    console.error('Authentication failed:', e.message);
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+};
+
 app.get('/', (req, res) => {
   res.json({ message: 'Tsuuwa Backend API is running!' });
 });
@@ -41,8 +66,9 @@ app.get('/db-health', async (req, res) => {
   }
 });
 
-app.post('/rooms', async (req, res) => {
+app.post('/rooms', authenticate, async (req, res) => {
   try {
+    const creatorUid = req.user.uid; // 認証されたユーザーのUIDを取得
     const { name, description, nop, password } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Room name is required' });
@@ -57,7 +83,7 @@ app.post('/rooms', async (req, res) => {
 });
 
 // 部屋の削除エンドポイント
-app.delete('/rooms/:roomId', async (req, res) => {
+app.delete('/rooms/:roomId', authenticate, async (req, res) => {
   try {
     const id = Number(req.params.roomId);
     if (!Number.isInteger(id)) {
@@ -74,7 +100,7 @@ app.delete('/rooms/:roomId', async (req, res) => {
 });
 
 // 追加: 部屋一覧を返すエンドポイント
-app.get('/rooms', async (req, res) => {
+app.get('/rooms', authenticate, async (req, res) => {
   try {
     const rooms = await prisma.room.findMany({
       orderBy: { id: 'desc' },
@@ -86,7 +112,7 @@ app.get('/rooms', async (req, res) => {
 });
 
 // 追加: 部屋詳細を返すエンドポイント
-app.get('/rooms/:roomId', async (req, res) => {
+app.get('/rooms/:roomId', authenticate, async (req, res) => {
   try {
     const id = Number(req.params.roomId);
     if (!Number.isInteger(id)) {
@@ -102,7 +128,7 @@ app.get('/rooms/:roomId', async (req, res) => {
   }
 });
 
-app.get('/rooms/:roomId/token', async (req, res) => {
+app.get('/rooms/:roomId/token', authenticate, async (req, res) => {
   try {
     const { roomId } = req.params;
     // client から numeric uid か userAccount を受け取れるようにする

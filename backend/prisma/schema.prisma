@@ -20,6 +20,7 @@ model room {
   description String   @default("")
   nop         Int
   password    String   @default("")  // 追加
+  creatorUid  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
