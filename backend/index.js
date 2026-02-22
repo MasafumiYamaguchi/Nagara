@@ -6,7 +6,19 @@ const { PrismaClient } = require('@prisma/client');
 const { buildRtcToken } = require('./rtc/agoraToken');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
-const serviceAccount = require('./key/service_accountKey.json');
+
+// service account を環境変数(base64)から読む
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+  ? JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8'))
+  : null;
+
+if (!serviceAccount) {
+  throw new Error('FIREBASE_SERVICE_ACCOUNT_BASE64 is not set');
+}
+
+const firebaseApp = initializeApp({
+  credential: cert(serviceAccount),
+});
 
 dotenv.config();
 
@@ -30,11 +42,6 @@ const prisma = new PrismaClient();
     console.error('PostgreSQL connection failed:', err.message);
   }
 })();
-
-// Firebase Admin周りの処理
-const firebaseApp = initializeApp({
-  credential: cert(serviceAccount),
-});
 
 // 認証用ミドルウェア
 const authenticate = async (req, res, next) => {
