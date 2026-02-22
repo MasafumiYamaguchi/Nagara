@@ -289,10 +289,24 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   }, [db, auth.currentUser]);
 
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("ログインしてない");
+    const idToken = await user.getIdToken();
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+  }, [auth]);
+
     // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
     try {
-      const res = await fetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
+      const res = await authFetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
       if (!res.ok) throw new Error('renew token fail');
       const data = await res.json();
       const expireMs =
@@ -308,7 +322,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       console.error('Error renewing token:', error);
       crashlytics().recordError(error as Error);
     }
-  }, [roomId]);
+  }, [roomId, authFetch]);
 
   // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
   const engineRef = useRef<IRtcEngine | null>(null);
@@ -594,7 +608,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       const userAccountParam = currentUser ? encodeURIComponent(currentUser.uid) : '';
       const tokenUrl =
         `https://api.tsuuwa.com/rooms/${roomId}/token${userAccountParam ? `?userAccount=${userAccountParam}` : ''}`;
-      const res = await fetch(tokenUrl);
+      const res = await authFetch(tokenUrl);
       if (!res.ok) throw new Error(`Failed token: ${res.status}`);
       const data = await res.json();
 
@@ -709,7 +723,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       tokenLoadingRef.current = false;
       setTokenLoading(false);
     }
-  }, [roomId, initAgora,  auth.currentUser]); // ← tokenLoading を依存から外した
+  }, [roomId, initAgora,  auth.currentUser, authFetch]);
 
   // 初回レンダリング時にトークン取得 & join
   useEffect(() => {
@@ -825,9 +839,9 @@ export default function RoomScreen({ navigation, route }: Props) {
     cleanupAndLeave();
     onClose();
     navigation.goBack();
-    // 部屋に誰もいなくなったら削除リクエストを送る
-    if(participants.length == 1) {
-      fetch(`https://api.tsuuwa.com/rooms/${roomId}`, {
+
+    if (participants.length == 1) {
+      authFetch(`https://api.tsuuwa.com/rooms/${roomId}`, {
         method: 'DELETE',
       }).then(res => {
         if (res.ok) {
