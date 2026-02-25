@@ -294,10 +294,30 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   }, [db, auth.currentUser]);
 
+  const waitForAuthUser = useCallback((timeoutMs = 8000) => {
+    return new Promise((resolve, reject) => {
+      if (auth.currentUser) return resolve(auth.currentUser);
+
+      const timer = setTimeout(() => {
+        unsub();
+        reject(new Error('auth user timeout'));
+      }, timeoutMs);
+
+      const unsub = auth.onAuthStateChanged((u) => {
+        if (u) {
+          clearTimeout(timer);
+          unsub();
+          resolve(u);
+        }
+      });
+    });
+  }, [auth]);
+
   const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("ログインしてない");
+    const user = (await waitForAuthUser()) as { getIdToken: () => Promise<string> };
     const idToken = await user.getIdToken();
+
+    console.log('[authFetch]', options.method || 'GET', url);
 
     return fetch(url, {
       ...options,
@@ -306,7 +326,7 @@ export default function RoomScreen({ navigation, route }: Props) {
         Authorization: `Bearer ${idToken}`,
       },
     });
-  }, [auth]);
+  }, [waitForAuthUser]);
 
   const startPresence = useCallback(async () => {
     if (presenceSessionIdRef.current) return;
@@ -354,10 +374,6 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   }, [authFetch, roomId]);
 
-  useEffect(() => {
-    startPresence();
-  }, [startPresence]);
-
     // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
     try {
@@ -378,6 +394,10 @@ export default function RoomScreen({ navigation, route }: Props) {
       crashlytics().recordError(error as Error);
     }
   }, [roomId, authFetch]);
+
+  useEffect(() => {
+    startPresence();
+  }, [startPresence]);
 
   // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
   const engineRef = useRef<IRtcEngine | null>(null);

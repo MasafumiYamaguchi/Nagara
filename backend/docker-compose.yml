@@ -7,6 +7,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"   # 外部に直接出さない
     volumes:
+      - ./logs:/app/logs
       - .:/app
     environment:
       - NODE_ENV=development
