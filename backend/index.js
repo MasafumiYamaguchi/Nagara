@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-dotenv.config(); // ← ここは削除
 const { Pool } = require('pg');
 const { PrismaClient } = require('@prisma/client');
 const { buildRtcToken } = require('./rtc/agoraToken');
@@ -11,15 +10,22 @@ const { randomUUID } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const logDir = path.join(process.cwd(), "logs");
+dotenv.config(); // ← 1回だけここで
+
+const app = express(); // ← appを先に定義
+app.set('trust proxy', true);
+const PORT = process.env.PORT || 3000;
+
+const logDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+const accessLogFile = fs.createWriteStream(path.join(logDir, 'access.log'), { flags: 'a' });
 
-const accessLog = fs.createWriteStream(path.join(logDir, "access.log"), { flags: "a" });
+app.use(cors());
+app.use(express.json());
 
+// ファイルログ（app定義後なのでOK）
 app.use((req, res, next) => {
-  accessLog.write(
-    `${new Date().toISOString()} ${req.method} ${req.url}\n`
-  );
+  accessLogFile.write(`${new Date().toISOString()} ${req.method} ${req.url}\n`);
   next();
 });
 
@@ -37,13 +43,6 @@ const firebaseApp = initializeApp({
 });
 
 dotenv.config();
-
-const app = express();
-app.set('trust proxy', true);
-const PORT = process.env.PORT || 3000;
-
-app.use(cors());
-app.use(express.json());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
