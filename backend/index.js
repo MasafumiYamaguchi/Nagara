@@ -144,30 +144,37 @@ app.delete('/rooms/:roomId', authenticate, async (req, res) => {
     const id = Number(req.params.roomId);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid room ID' });
 
-    // 先に存在確認（必要なら作成者チェックもここで）
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) return res.status(404).json({ error: 'Room not found' });
 
     await prisma.$transaction(async (tx) => {
-      // FKがRESTRICTでも消せるように明示的に掃除
+      // 1) 先に削除ログ（roomIdありで安全）
+      const net = getClientNetworkInfo(req);
+      await tx.accessLog.create({
+        data: {
+          uid: req.user.uid,
+          event: 'ROOM_DELETED',
+          roomId: id,
+          method: req.method,
+          path: req.originalUrl,
+          ip: net.ip,
+          forwardedFor: net.forwardedFor,
+          sourcePort: net.sourcePort,
+          forwardedPort: net.forwardedPort,
+          userAgent: net.userAgent,
+          details: { deletedRoomId: id },
+        },
+      });
+
+      // 2) ぶら下がりデータ整理
       await tx.accessLog.updateMany({
-        where: { roomId: id },
+        where: { roomId: id, event: { not: 'ROOM_DELETED' } },
         data: { roomId: null },
       });
+      await tx.roomPresence.deleteMany({ where: { roomId: id } });
 
-      await tx.roomPresence.deleteMany({
-        where: { roomId: id },
-      });
-
-      await tx.room.delete({
-        where: { id },
-      });
-    });
-
-    await writeAccessLog(req, {
-      uid: req.user.uid,
-      event: 'ROOM_DELETED',
-      roomId: id,
+      // 3) room削除
+      await tx.room.delete({ where: { id } });
     });
 
     res.json({ deleted: 1 });
