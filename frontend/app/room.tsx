@@ -72,8 +72,8 @@ interface Participant {
 
 type Props = NativeStackScreenProps<RootStackParamList, "Room">;
 
-const AGORA_APP_ID = Constants.expoConfig?.extra?.agoraAppId;
-const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://api.tsuuwa.com';
+const AGORA_APP_ID = constants.expoConfig?.extra?.agoraAppId;
+const API_BASE_URL = constants.expoConfig?.extra?.apiBaseUrl || 'https://api.tsuuwa.com';
 
 export default function RoomScreen({ navigation, route }: Props) {
   const { roomId, name } = route.params;  

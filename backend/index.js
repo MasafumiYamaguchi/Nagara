@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+dotenv.config(); // ← ここは削除
 const { Pool } = require('pg');
 const { PrismaClient } = require('@prisma/client');
 const { buildRtcToken } = require('./rtc/agoraToken');
