@@ -54,7 +54,7 @@ model roomPresence {
   id              BigInt   @id @default(autoincrement())
   sessionId       String   @unique
   uid             String
-  roomId          Int
+  roomId          Int? 
   joinedAt        DateTime @default(now()) @db.Timestamptz(3)
   leftAt          DateTime? @db.Timestamptz(3)
   joinIp          String?
@@ -63,7 +63,7 @@ model roomPresence {
   leaveSourcePort Int?
   userAgent       String?
 
-  room            room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room            room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   @@index([roomId, joinedAt])
   @@index([uid, joinedAt])

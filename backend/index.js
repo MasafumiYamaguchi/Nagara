@@ -162,8 +162,15 @@ app.delete('/rooms/:roomId', authenticate, async (req, res) => {
     if (!room) return res.status(404).json({ error: 'Room not found' });
 
     await prisma.$transaction(async (tx) => {
-      // 1) 先に削除ログ（roomIdありで安全）
       const net = getClientNetworkInfo(req);
+
+      // 1) 退出記録を先に残す（削除前に！）
+      await tx.roomPresence.updateMany({
+        where: { roomId: id, leftAt: null },
+        data: { leftAt: new Date() },
+      });
+
+      // 2) 削除ログ
       await tx.accessLog.create({
         data: {
           uid: req.user.uid,
@@ -180,14 +187,13 @@ app.delete('/rooms/:roomId', authenticate, async (req, res) => {
         },
       });
 
-      // 2) ぶら下がりデータ整理
+      // 3) accessLogのroomIdをnullに
       await tx.accessLog.updateMany({
         where: { roomId: id, event: { not: 'ROOM_DELETED' } },
         data: { roomId: null },
       });
-      await tx.roomPresence.deleteMany({ where: { roomId: id } });
 
-      // 3) room削除
+      // 5) room削除
       await tx.room.delete({ where: { id } });
     });
 
