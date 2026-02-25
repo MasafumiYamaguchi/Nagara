@@ -23,6 +23,7 @@ const firebaseApp = initializeApp({
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -73,79 +74,100 @@ app.get('/db-health', async (req, res) => {
   }
 });
 
+const toIntOrNull = (v) => {
+  const n = Number(v);
+  return Number.isInteger(n) ? n : null;
+};
+
+const getClientNetworkInfo = (req) => {
+  const xff = req.headers['x-forwarded-for'];
+  const xfp = req.headers['x-forwarded-port'];
+  const forwardedFor = Array.isArray(xff) ? xff[0] : (xff || '');
+  const firstForwardedIp = forwardedFor ? String(forwardedFor).split(',')[0].trim() : null;
+  const forwardedPortRaw = Array.isArray(xfp) ? xfp[0] : (xfp || '');
+  const firstForwardedPort = forwardedPortRaw ? String(forwardedPortRaw).split(',')[0].trim() : null;
+
+  return {
+    ip: req.ip || req.socket?.remoteAddress || null,
+    forwardedFor: firstForwardedIp,
+    sourcePort: toIntOrNull(req.socket?.remotePort),
+    forwardedPort: toIntOrNull(firstForwardedPort),
+    userAgent: req.headers['user-agent'] || null,
+  };
+};
+
+const writeAccessLog = async (req, { uid, event, roomId = null, details = null }) => {
+  const net = getClientNetworkInfo(req);
+  await prisma.accessLog.create({
+    data: {
+      uid: uid || null,
+      event,
+      roomId,
+      method: req.method,
+      path: req.originalUrl,
+      ip: net.ip,
+      forwardedFor: net.forwardedFor,
+      sourcePort: net.sourcePort,
+      forwardedPort: net.forwardedPort,
+      userAgent: net.userAgent,
+      details,
+    },
+  });
+};
+
 app.post('/rooms', authenticate, async (req, res) => {
   try {
-    const creatorUid = req.user.uid; // 認証されたユーザーのUIDを取得
+    const creatorUid = req.user.uid;
     const { name, description, nop, password } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Room name is required' });
-    }
+    if (!name) return res.status(400).json({ error: 'Room name is required' });
+
     const newRoom = await prisma.room.create({
       data: { name, description: description || '', nop, password: password || '', creatorUid },
     });
+
+    await writeAccessLog(req, {
+      uid: creatorUid,
+      event: 'ROOM_CREATED',
+      roomId: newRoom.id,
+      details: { nop: newRoom.nop },
+    });
+
     res.status(201).json(newRoom);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// 部屋の削除エンドポイント
 app.delete('/rooms/:roomId', authenticate, async (req, res) => {
   try {
     const id = Number(req.params.roomId);
-    if (!Number.isInteger(id)) {
-      return res.status(400).json({ error: 'Invalid room ID' });
-    }
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid room ID' });
+
     const result = await prisma.room.deleteMany({ where: { id } });
-    if (result.count === 0) {
-      return res.status(404).json({ error: 'Room not found' });
-    }
-    res.json({ deleted: result.count }); 
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+    if (result.count === 0) return res.status(404).json({ error: 'Room not found' });
 
-// 追加: 部屋一覧を返すエンドポイント
-app.get('/rooms', authenticate, async (req, res) => {
-  try {
-    const rooms = await prisma.room.findMany({
-      orderBy: { id: 'desc' },
+    await writeAccessLog(req, {
+      uid: req.user.uid,
+      event: 'ROOM_DELETED',
+      roomId: id,
+      details: { deleted: result.count },
     });
-    res.json(rooms);
+
+    res.json({ deleted: result.count });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// 追加: 部屋詳細を返すエンドポイント
-app.get('/rooms/:roomId', authenticate, async (req, res) => {
-  try {
-    const id = Number(req.params.roomId);
-    if (!Number.isInteger(id)) {
-      return res.status(400).json({ error: 'Invalid room ID' });
-    }
-    const room = await prisma.room.findUnique({ where: { id } });
-    if (!room) {
-      return res.status(404).json({ error: 'Room not found' });
-    }
-    res.json(room);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
+// トークン発行ログ
 app.get('/rooms/:roomId/token', authenticate, async (req, res) => {
   try {
     const { roomId } = req.params;
-    // client から numeric uid か userAccount を受け取れるようにする
     const uidParam = req.query.uid;
-    const userAccount = req.query.userAccount; // 例: Firebase uid を入れる
-
+    const userAccount = req.query.userAccount;
     const roleparam = req.query.role === 'audience' ? 'audience' : 'publisher';
     const expireSeconds = 3600;
 
-    // buildRtcToken は以下の rtc/agoraToken.js を参照
     const { token, expireAt } = buildRtcToken({
       channelName: roomId,
       uid: uidParam ? Number(uidParam) : undefined,
@@ -154,7 +176,13 @@ app.get('/rooms/:roomId/token', authenticate, async (req, res) => {
       expireSeconds,
     });
 
-    // レスポンスに、client が使う ID（uid か userAccount）を返す
+    await writeAccessLog(req, {
+      uid: req.user.uid,
+      event: 'RTC_TOKEN_ISSUED',
+      roomId: Number(roomId),
+      details: { role: roleparam, expireAt, expireSeconds, userAccount: userAccount || null, uidParam: uidParam || null },
+    });
+
     res.json({
       token,
       uid: userAccount ? userAccount : (uidParam ? Number(uidParam) : undefined),
@@ -164,6 +192,75 @@ app.get('/rooms/:roomId/token', authenticate, async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ error: e.message});
+  }
+});
+
+// 入室開始
+app.post('/rooms/:roomId/presence/start', authenticate, async (req, res) => {
+  try {
+    const roomId = Number(req.params.roomId);
+    if (!Number.isInteger(roomId)) return res.status(400).json({ error: 'Invalid room ID' });
+
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+
+    const net = getClientNetworkInfo(req);
+    const sessionId = randomUUID();
+
+    const row = await prisma.roomPresence.create({
+      data: {
+        sessionId,
+        uid: req.user.uid,
+        roomId,
+        joinIp: net.forwardedFor || net.ip,
+        joinSourcePort: net.forwardedPort || net.sourcePort,
+        userAgent: net.userAgent,
+      },
+    });
+
+    await writeAccessLog(req, {
+      uid: req.user.uid,
+      event: 'ROOM_JOINED',
+      roomId,
+      details: { sessionId: row.sessionId },
+    });
+
+    res.status(201).json({ sessionId: row.sessionId, joinedAt: row.joinedAt });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 退出
+app.post('/rooms/:roomId/presence/end', authenticate, async (req, res) => {
+  try {
+    const roomId = Number(req.params.roomId);
+    const { sessionId } = req.body;
+    if (!Number.isInteger(roomId)) return res.status(400).json({ error: 'Invalid room ID' });
+    if (!sessionId) return res.status(400).json({ error: 'sessionId is required' });
+
+    const net = getClientNetworkInfo(req);
+    const result = await prisma.roomPresence.updateMany({
+      where: { sessionId, roomId, uid: req.user.uid, leftAt: null },
+      data: {
+        leftAt: new Date(),
+        leaveIp: net.forwardedFor || net.ip,
+        leaveSourcePort: net.forwardedPort || net.sourcePort,
+      },
+    });
+
+    if (result.count === 0) return res.status(404).json({ error: 'Active session not found' });
+
+    await writeAccessLog(req, {
+      uid: req.user.uid,
+      event: 'ROOM_LEFT',
+      roomId,
+      details: { sessionId },
+    });
+
+    res.json({ ended: true, sessionId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

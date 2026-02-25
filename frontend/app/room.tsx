@@ -72,7 +72,8 @@ interface Participant {
 
 type Props = NativeStackScreenProps<RootStackParamList, "Room">;
 
-const AGORA_APP_ID = constants.expoConfig?.extra?.agoraAppId;
+const AGORA_APP_ID = Constants.expoConfig?.extra?.agoraAppId;
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://api.tsuuwa.com';
 
 export default function RoomScreen({ navigation, route }: Props) {
   const { roomId, name } = route.params;  
@@ -108,6 +109,10 @@ export default function RoomScreen({ navigation, route }: Props) {
   const [agoraUserAccount, setAgoraUserAccount] = useState<string | null>(null);
   const localUserIdRef = useRef<string>('local');
   const agoraUserAccountRef = useRef<string | null>(null);
+
+  // 追加: presenceセッション管理
+  const presenceSessionIdRef = useRef<string | null>(null);
+  const presenceEndedRef = useRef(false);
 
   // リアクションボタン用
   const [showReaction, setShowReaction] = useState(false);
@@ -302,6 +307,56 @@ export default function RoomScreen({ navigation, route }: Props) {
       },
     });
   }, [auth]);
+
+  const startPresence = useCallback(async () => {
+    if (presenceSessionIdRef.current) return;
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/rooms/${roomId}/presence/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`presence/start failed: ${res.status} ${text}`);
+      }
+      const data = await res.json();
+      presenceSessionIdRef.current = data.sessionId;
+      presenceEndedRef.current = false;
+      console.log('[Presence] started:', data.sessionId);
+    } catch (e) {
+      console.warn('[Presence] start error:', e);
+      crashlytics().recordError(e as Error);
+    }
+  }, [authFetch, roomId]);
+
+  const endPresence = useCallback(async () => {
+    if (!presenceSessionIdRef.current || presenceEndedRef.current) return;
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/rooms/${roomId}/presence/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: presenceSessionIdRef.current }),
+      });
+
+      if (!res.ok && res.status !== 404) {
+        const text = await res.text();
+        throw new Error(`presence/end failed: ${res.status} ${text}`);
+      }
+
+      presenceEndedRef.current = true;
+      presenceSessionIdRef.current = null;
+      console.log('[Presence] ended');
+    } catch (e) {
+      console.warn('[Presence] end error:', e);
+      crashlytics().recordError(e as Error);
+    }
+  }, [authFetch, roomId]);
+
+  useEffect(() => {
+    startPresence();
+  }, [startPresence]);
 
     // トークン更新
   const fetchNewTokenAndRenew = useCallback(async () => {
@@ -746,6 +801,9 @@ export default function RoomScreen({ navigation, route }: Props) {
   // クリーンアップ
   useEffect(() => {
     return () => {
+      // 追加: 画面破棄時も退出ログ送信
+      void endPresence();
+
       if (engineRef.current) {
         try {
           if (joinedRef.current) {
@@ -756,7 +814,7 @@ export default function RoomScreen({ navigation, route }: Props) {
         engineRef.current = null;
       }
     };
-  }, []);
+  }, [endPresence]);
 
   // ミュート切り替え
   const handleMuteToggle = () => {
@@ -835,7 +893,8 @@ export default function RoomScreen({ navigation, route }: Props) {
   };
 
   // 退出ボタン押下時
-  const handleLeaveRoom = () => {
+  const handleLeaveRoom = async () => {
+    await endPresence();
     cleanupAndLeave();
     onClose();
     navigation.goBack();
