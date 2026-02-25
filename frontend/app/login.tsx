@@ -95,21 +95,16 @@ export default function LoginScreen({ navigation }: Props) {
             Googleでログイン
           </Button>
 
+          {/*
           <Button
             variant="ghost"
             colorScheme="coolGray"
             mt="4"
             onPress={() => navigation.goBack()}
-            /*
-            onLongPress={() => {
-                  // クラッシュを強制的に発生させる（テスト用）
-                  crashlytics().log('Forcing a crash for testing purposes');
-                  forceCrash();
-            } }
-            */
           >
             戻る
           </Button>
+          */}
         </VStack>
       </Box>
     </View>

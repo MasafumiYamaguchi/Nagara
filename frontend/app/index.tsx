@@ -30,7 +30,7 @@ export default function Index({ route, navigation }: Props) {
           Nagara
         </Heading>
         <Text fontSize="md" color="coolGray.600" textAlign="center">
-          音声通話アプリへようこそ
+          作業通話アプリ『Nagara』へようこそ
         </Text>
 
         <VStack space={3} mt="8" w="80%">

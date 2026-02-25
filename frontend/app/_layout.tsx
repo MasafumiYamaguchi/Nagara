@@ -12,6 +12,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import IndexScreen from "./index";
 import LoginScreen from "./login";
 import ToSScreen from "./tos";
+import ToSrecheckScreen from "./tosrecheck";
+import PrivacyPolicyScreen from "./privacypolicy";
+import PrivacyPolicyRecheckScreen from "./privacypolicyrecheck";
 import { RootStackParamList } from "./navigation/types";
 import RegisterScreen from "./register";
 import BottomTabNavigator from "./tab/bottomtabnavigator"; // BottomTabNavigatorをインポート
@@ -283,7 +286,10 @@ export default function RootLayout() {
           navigationRef.navigate('ToS');
           return;
         }
-        navigationRef.navigate('Main');
+        navigationRef.current?.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
         return;
       }
 
@@ -311,7 +317,6 @@ export default function RootLayout() {
       <ColorModeBridge>
         <NavigationContainer ref={navigationRef}>
           <Stack.Navigator
-            initialRouteName={user ? "Main" : "Index"}
             screenOptions={{
               headerShown: false,
             }}
@@ -319,6 +324,9 @@ export default function RootLayout() {
             <Stack.Screen name="Index" component={IndexScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="ToS" component={ToSScreen} />
+            <Stack.Screen name="ToSrecheck" component={ToSrecheckScreen} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="PrivacyPolicyRecheck" component={PrivacyPolicyRecheckScreen} />
             <Stack.Screen name="Main" component={BottomTabNavigator} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="Room" component={RoomScreen} />

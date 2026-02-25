@@ -305,6 +305,20 @@ const Settings = ({ route, navigation }: Props) => {
             subtitle="サポートチームに連絡"
             onPress={() => navigation.navigate("Support")}
           />
+
+          <SettingsItem
+            icon="chatbubble-outline"
+            title="利用規約"
+            subtitle="利用規約を確認"
+            onPress={() => navigation.navigate("ToSrecheck")}
+          />
+
+          <SettingsItem
+            icon="shield-checkmark-outline"
+            title="プライバシーポリシー"
+            subtitle="プライバシーポリシーを確認"
+            onPress={() => navigation.navigate("PrivacyPolicyRecheck")}
+          />
         </Box>
 
         {/* ログアウト */}
