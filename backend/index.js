@@ -7,6 +7,7 @@ const { PrismaClient } = require('@prisma/client');
 const { buildRtcToken } = require('./rtc/agoraToken');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
+const { randomUUID } = require('crypto');
 
 // service account を環境変数(base64)から読む
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
