@@ -8,8 +8,6 @@ const { buildRtcToken } = require('./rtc/agoraToken');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { randomUUID } = require('crypto');
-import fs from "fs";
-import path from "path";
 
 const logDir = path.join(process.cwd(), "logs");
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
