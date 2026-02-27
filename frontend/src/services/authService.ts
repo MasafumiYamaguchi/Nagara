@@ -10,7 +10,7 @@ const db = getFirestore(app);
 
 // Google Sign-Inの設定
 GoogleSignin.configure({
-  webClientId: '890979401267-19vnobecq615sns2km9gebfdguhs7p2c.apps.googleusercontent.com', // 環境変数に置き換えた方がいい
+  webClientId: '890979401267-19vnobecq615sns2km9gebfdguhs7p2c.apps.googleusercontent.com', 
   offlineAccess: true,
   hostedDomain: '', // オプション
   forceCodeForRefreshToken: true, // オプション

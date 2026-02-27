@@ -20,10 +20,10 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
+          "NSAllowsArbitraryLoads": false,
           "NSExceptionDomains": {
-            "57.181.137.17": {
-              "NSExceptionAllowsInsecureHTTPLoads": true,
+            "api.tsuuwa.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
               "NSIncludesSubdomains": true
             }
           }

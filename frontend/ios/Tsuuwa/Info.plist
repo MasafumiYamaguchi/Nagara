@@ -45,13 +45,13 @@
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
-      <true/>
+      <false/>
       <key>NSExceptionDomains</key>
       <dict>
         <key>57.181.137.17</key>
         <dict>
           <key>NSExceptionAllowsInsecureHTTPLoads</key>
-          <true/>
+          <false/>
           <key>NSIncludesSubdomains</key>
           <true/>
         </dict>

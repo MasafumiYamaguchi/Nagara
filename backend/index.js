@@ -9,6 +9,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { randomUUID } = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config(); // ← 1回だけここで
 
@@ -19,6 +20,14 @@ const PORT = process.env.PORT || 3000;
 const logDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 const accessLogFile = fs.createWriteStream(path.join(logDir, 'access.log'), { flags: 'a' });
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1分
+  max: 100, // IPごとに1分間に100リクエストまで
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
 
 app.use(cors());
 app.use(express.json());
@@ -80,6 +89,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'Tsuuwa Backend API is running!' });
 });
 
+/* 開発中のみ
 app.get('/db-health', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT 1 AS ok');
@@ -88,6 +98,7 @@ app.get('/db-health', async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+*/
 
 const toIntOrNull = (v) => {
   const n = Number(v);
