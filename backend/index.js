@@ -14,7 +14,7 @@ const rateLimit = require('express-rate-limit');
 dotenv.config(); // ← 1回だけここで
 
 const app = express(); // ← appを先に定義
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 const logDir = path.join(process.cwd(), 'logs');
