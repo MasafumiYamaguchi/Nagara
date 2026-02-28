@@ -81,7 +81,7 @@ const ToSScreen = ({navigation}: Props) => {
             mb={10}
             onPress={async () => {
               await AsyncStorage.setItem('acceptedToS', 'true');
-              navigation.replace('Main');
+              navigation.replace("PrivacyPolicy");
             }}
           >
             同意して進む

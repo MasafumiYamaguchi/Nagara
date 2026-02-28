@@ -266,6 +266,11 @@ const getAcceptedToS = async (): Promise<boolean> => {
   return v === 'true';
 };
 
+const getAcceptedPrivacy = async (): Promise<boolean> => {
+  const v = await AsyncStorage.getItem('acceptedPrivacy');
+  return v === 'true';
+}
+
 export default function RootLayout() {
   const { user, isInitializing } = useAuthStore();
 
@@ -283,7 +288,18 @@ export default function RootLayout() {
       if (user) {
         const accepted = await getAcceptedToS();
         if (!accepted) {
-          navigationRef.navigate('ToS');
+          navigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: 'ToS' }],
+          });
+          return;
+        }
+        const acceptedPrivacy = await getAcceptedPrivacy();
+        if (!acceptedPrivacy) {
+          navigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: 'PrivacyPolicy' }],
+          });
           return;
         }
         navigationRef.current?.reset({

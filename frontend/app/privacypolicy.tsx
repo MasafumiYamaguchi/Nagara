@@ -1,6 +1,7 @@
 import { Box, Button, Divider, ScrollView, Text, VStack, useColorMode } from 'native-base'
 import { NativeStackScreenProps } from "@react-navigation/native-stack/lib/typescript/src/types";
 import { RootStackParamList } from "./navigation/types";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, "PrivacyPolicy">;
 
@@ -64,11 +65,12 @@ const PrivacyPolicyScreen = ({navigation}: Props) => {
           <Button
             mt={8}
             mb={10}
-            onPress={() => {
-              navigation.goBack();
+            onPress={async () => {
+              await AsyncStorage.setItem('acceptedPrivacy', 'true');
+              navigation.replace("Main");
             }}
           >
-            戻る
+            同意して進む
           </Button>
         </VStack>
       </ScrollView>

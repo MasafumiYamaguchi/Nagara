@@ -30,6 +30,15 @@ const resetToS = async () => {
   }
 };
 
+const resetPrivacy = async () => {
+  try {
+    await AsyncStorage.removeItem("acceptedPrivacy");
+    console.log("Privacy acceptance reset.");
+  } catch (error) {
+    console.error("Error resetting Privacy acceptance:", error);
+  }
+};
+
 const PrivacyScreen = ({ navigation }: Props) => {
   const { colorMode: nativeBaseColorMode } = useColorMode();
   const toast = useToast();
@@ -264,14 +273,21 @@ const PrivacyScreen = ({ navigation }: Props) => {
             onPress={requestMicPermission}
           />
           
-          {
-          // 開発中のみ表示
-          /*
+          
+          {// 開発中のみ表示
+          }
+          {/*
           <PrivacyMenuItem
             title="ToS同意状態をリセット"
             subtitle="利用規約の同意状態を初期化"
             icon="refresh"
             onPress={resetToS}
+          />
+          <PrivacyMenuItem
+            title="プライバシーポリシー同意状態をリセット"
+            subtitle="プライバシーポリシーの同意状態を初期化"
+            icon="refresh"
+            onPress={resetPrivacy}
           />
           */}
         </Box>

@@ -10,7 +10,7 @@ const db = getFirestore(app);
 
 // Google Sign-Inの設定
 GoogleSignin.configure({
-  webClientId: '890979401267-19vnobecq615sns2km9gebfdguhs7p2c.apps.googleusercontent.com', 
+  webClientId: '890979401267-9hfchfep2kvkcp2mf5jhvcj24matq5ea.apps.googleusercontent.com', 
   offlineAccess: true,
   hostedDomain: '', // オプション
   forceCodeForRefreshToken: true, // オプション
@@ -89,12 +89,18 @@ export async function signOut() {
 }
 
 export const signInWithGoogle = async () => {
-
   await GoogleSignin.hasPlayServices();
-  const { idToken } = await GoogleSignin.signIn();
+
+  // Googleアカウント選択
+  await GoogleSignin.signIn();
+
+  // idTokenは getTokens から取るとバージョン差異に強い
+  const { idToken } = await GoogleSignin.getTokens();
+
+  if (!idToken) {
+    throw new Error('Google idToken が取得できなかった');
+  }
 
   const googleCredential = GoogleAuthProvider.credential(idToken);
-
   return signInWithCredential(auth, googleCredential);
-  
-}
+};
