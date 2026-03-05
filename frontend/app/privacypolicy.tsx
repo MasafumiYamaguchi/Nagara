@@ -56,7 +56,8 @@ const PrivacyPolicyScreen = ({navigation}: Props) => {
           <BodyText>当方は、個人情報の漏洩、滅失または毀損の防止その他の個人情報の安全管理のために必要かつ適切な措置を講じます。</BodyText>
 
           <HeadingText>5. アカウントおよびデータの削除</HeadingText>
-          <BodyText>現在、アプリ内からのアカウント自動削除機能は提供しておりません。アカウントおよび関連データの削除をご希望の場合は、下記のお問い合わせ先よりご連絡ください。ご本人確認後、速やかにサーバー上からデータを削除いたします。</BodyText>
+          <BodyText>本アプリからアカウントの削除が可能です。プロフィール画面の「退会する」ボタンから退会手続きを行うと、Firebase Authentication上のアカウント情報およびFirestore上のユーザーデータが削除されます。</BodyText>
+          <BodyText>なお、退会後はアカウントの復元はできませんのでご注意ください。</BodyText>
           <BodyText>お問い合わせ先: mkapps.app@gmail.com</BodyText>
 
           <HeadingText>6. プライバシーポリシーの変更</HeadingText>

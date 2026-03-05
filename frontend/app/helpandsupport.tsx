@@ -37,6 +37,11 @@ const faqItems: FAQItemType[] = [
   },
   {
     id: "3",
+    question: "退会の方法は？",
+    answer: "プロフィール画面の「退会する」ボタンから退会手続きを行うと、Firebase Authentication上のアカウント情報およびFirestore上のユーザーデータが削除されます。なお、退会後はアカウントの復元はできませんのでご注意ください。",
+  },
+  {
+    id: "4",
     question: "データ削除の方法は？",
     answer: "設定 > プライバシー設定から申請できるように準備中。",
     isDev: true,

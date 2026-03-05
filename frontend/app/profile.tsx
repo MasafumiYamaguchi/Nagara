@@ -11,13 +11,17 @@ import {
   ScrollView,
   Center,
   useColorMode,
+  Button,
 } from "native-base";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../src/store/authStore";
 import EditProfile from "./components/editprofile";
 
+import { deleteUserData } from "../src/services/authService";
+  
 // Bottom Tab用の型定義をインポート
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Alert } from "react-native";
 type Props = BottomTabScreenProps<TabParamList, 'プロフィール'>;
 
 type TabParamList = {
@@ -49,6 +53,36 @@ const Profile = ({ navigation }: Props) => {
     }
   };
   */
+
+  const handleWithdraw = () => {
+    Alert.alert(
+      "退会確認",
+      "本当に退会しますか？",
+      [
+        {
+          text: "キャンセル",
+          style: "cancel"
+        },
+        {
+          text: "退会する",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await withdraw();
+              console.log('User account deleted');
+            } catch (error) {
+              console.log('Account deletion error', error);
+              Alert.alert("エラー", "退会処理に失敗しました");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  function withdraw() {
+    return deleteUserData();
+  }
 
   const ProfileMenuItem = ({ 
     title, 
@@ -298,6 +332,19 @@ const Profile = ({ navigation }: Props) => {
             onClose={() => setIsOpenEditProfile(false)}
             reportedUserId={user?.uid || ""}
           />)}
+
+        {/* 退会 */}
+        <Box mx="4" mb="6">
+          <Button
+            colorScheme="red"
+            variant="outline"
+            onPress={handleWithdraw}
+            leftIcon={<Ionicons name="log-out-outline" size={16} color="#E53E3E" />}
+            size="lg"
+          >
+            退会する
+          </Button>
+        </Box>
       </Box>
     </ScrollView>
   );

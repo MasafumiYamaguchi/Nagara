@@ -1,7 +1,8 @@
 import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, GoogleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, deleteDoc } from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // アプリインスタンスを取得 (モジュール式)
 const app = getApp();
@@ -104,3 +105,32 @@ export const signInWithGoogle = async () => {
   const googleCredential = GoogleAuthProvider.credential(idToken);
   return signInWithCredential(auth, googleCredential);
 };
+
+// ユーザーデータの完全削除（Firebase Authenticationのユーザー削除 + Firestoreのユーザードキュメント削除）
+export async function deleteUserData() {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No authenticated user');
+
+  // 再認証（requires-recent-login 対策）
+  await GoogleSignin.hasPlayServices();
+  await GoogleSignin.signIn();
+  const { idToken } = await GoogleSignin.getTokens();
+  if (!idToken) throw new Error('Google idToken の取得に失敗');
+  const googleCredential = GoogleAuthProvider.credential(idToken);
+  await user.reauthenticateWithCredential(googleCredential);
+
+  // Firestoreのユーザードキュメント削除
+  const userRef = doc(db, 'users', user.uid);
+  await deleteDoc(userRef);
+
+  // Firebase Authenticationのユーザー削除
+  await user.delete();
+
+  // Zustandのstoreをリセット
+  const { useAuthStore } = require('../store/authStore');
+  useAuthStore.getState().setUser(null);
+
+  // AsyncStorageのToS/Privacy同意フラグもリセット
+  await AsyncStorage.removeItem('acceptedToS');
+  await AsyncStorage.removeItem('acceptedPrivacy');
+}
