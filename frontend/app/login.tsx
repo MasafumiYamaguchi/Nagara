@@ -11,6 +11,9 @@ import {
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
+import { Platform, Alert } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { signInWithApple } from '../src/services/appleAuth';
 
 import { RootStackParamList } from "./navigation/types";
 import { signInWithGoogle, reloadUserProfile } from "../src/services/authService";
@@ -54,6 +57,16 @@ export default function LoginScreen({ navigation }: Props) {
     }
   };
 
+  const onAppleLoginPress = async () => {
+    try {
+      await signInWithApple();
+      // ここでホーム遷移とか既存フローにつなぐ
+    } catch (e: any) {
+      if (e?.code === 'ERR_REQUEST_CANCELED') return; // ユーザーキャンセル
+      Alert.alert('Appleログイン失敗', e?.message ?? '不明なエラー');
+    }
+  };
+
   // 強制的にクラッシュさせる
   /*
   const forceCrash = () => {
@@ -86,16 +99,15 @@ export default function LoginScreen({ navigation }: Props) {
             Googleでログイン
           </Button>
 
-          {/*
-          <Button
-            variant="ghost"
-            colorScheme="coolGray"
-            mt="4"
-            onPress={() => navigation.goBack()}
-          >
-            戻る
-          </Button>
-          */}
+          {Platform.OS === 'ios' && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={8}
+              style={{ width: '100%', height: 44, marginTop: 12 }}
+              onPress={onAppleLoginPress}
+            />
+          )}
         </VStack>
       </Box>
     </View>

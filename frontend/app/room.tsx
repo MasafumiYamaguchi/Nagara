@@ -58,6 +58,7 @@ import ReportUserDialog from './components/reportuserdialog';
 
 // BGM用意
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { get } from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
 const BONFIRE_SRC = require('../assets/music/bonfire.mp3');
 const BROWNNOISE_SRC = require('../assets/music/brownnoise.mp3');
 
@@ -67,7 +68,7 @@ interface Participant {
   name: string;
   isMuted: boolean;
   avatarUrl?: string;
-  speakingVolume?: number; 
+  speakingVolume?: number;
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, "Room">;
@@ -79,6 +80,7 @@ export default function RoomScreen({ navigation, route }: Props) {
   const { roomId, name } = route.params;  
   const [isMuted, setIsMuted] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [mutedParticipantIds, setMutedParticipantIds] = useState<Record<string, boolean>>({});
   const [bgmSound, setBgmSound] = useState<Audio.Sound | null>(null);
   const [selectedBgm, setSelectedBgm] = useState<'none' | 'bonfire' | 'brownnoise'>('none');
   const [isBgmPlaying, setIsBgmPlaying] = useState(false);
@@ -566,18 +568,25 @@ export default function RoomScreen({ navigation, route }: Props) {
       },
       onUserOffline: (_connection, remoteUid) => {
         console.log('[Agora] remote offline', remoteUid);
-        const acct = uidAccountMapRef.current[String(remoteUid)];
-        setParticipants(prev =>
-          prev.filter(p => p.id !== (acct ?? String(remoteUid)))
-        );
+        const uidKey = String(remoteUid);
+        const accountKey = uidAccountMapRef.current[uidKey];
+        setParticipants(prev => prev.filter(p => p.id !== uidKey && p.id !== accountKey));
+
+        setMutedParticipantIds(prev => {
+          const next = { ...prev };
+          delete next[uidKey];
+          if (accountKey) delete next[accountKey];
+          return next;
+        });
+        delete uidAccountMapRef.current[uidKey];
       },
       onUserMuteAudio: (_connection, remoteUid, muted) => {
         console.log('[Agora] remote mute change', remoteUid, muted);
-        const acct = uidAccountMapRef.current[String(remoteUid)];
-        const targetId = acct ?? String(remoteUid);
+        const uidKey = String(remoteUid);
+        const accountKey = uidAccountMapRef.current[uidKey];
         setParticipants(prev =>
           prev.map(p =>
-            p.id === targetId ? { ...p, isMuted: !!muted } : p
+            p.id === uidKey || p.id === accountKey ? { ...p, isMuted: !!muted } : p
           )
         );
       },
@@ -849,6 +858,37 @@ export default function RoomScreen({ navigation, route }: Props) {
     }
   };
 
+  // participant.id(文字列) から Agora の numeric uid を解決
+  const resolveRemoteUid = useCallback((participantId: string): number | null => {
+    const asNum = Number(participantId);
+    if (Number.isFinite(asNum) && asNum > 0) return asNum;
+
+    // userAccount で participants を作ってる場合は uidAccountMapRef から逆引き
+    for (const [uid, account] of Object.entries(uidAccountMapRef.current)) {
+      if (account === participantId) return Number(uid);
+    }
+    return null;
+  }, []);
+
+  const toggleParticipantMute = useCallback((participantId: string) => {
+    if (!engineRef.current) return;
+
+    const remoteUid = resolveRemoteUid(participantId);
+    if (!remoteUid) {
+      console.warn('[Mute] remote uid not found:', participantId);
+      return;
+    }
+
+    const nextMuted = !mutedParticipantIds[participantId];
+    const rc = engineRef.current.muteRemoteAudioStream(remoteUid, nextMuted);
+    if (rc !== 0) {
+      console.warn('[Mute] failed:', participantId, 'code=', rc);
+      return;
+    }
+
+    setMutedParticipantIds(prev => ({ ...prev, [participantId]: nextMuted }));
+  }, [mutedParticipantIds, resolveRemoteUid]);
+
   // ユーザーIDを変更して再参加するヘルパー
   const switchAgoraId = async (newId: string | number) => {
     if (!engineRef.current) return;
@@ -1051,6 +1091,12 @@ export default function RoomScreen({ navigation, route }: Props) {
                       }}>
                         通報する
                       </Menu.Item>
+                      <Menu.Item onPress={() => {
+                        console.log('ミュートする', participant.id);
+                        toggleParticipantMute(participant.id);
+                      }}>
+                        {mutedParticipantIds[participant.id] ? 'ミュート解除' : 'ミュートする'}
+                      </Menu.Item>
                     </Menu>
                   )}
 
@@ -1171,7 +1217,7 @@ export default function RoomScreen({ navigation, route }: Props) {
             borderWidth={1}
             borderColor={reactionFabBorder}
             _pressed={{ bg: reactionFabPressed }}
-            shadow={4}            // やや弱め
+            shadow={4}
             icon={<Ionicons name="happy-outline" size={24} color={reactionFabIconColor} />}
             onPress={() => setShowReaction(v => !v)}
           />
@@ -1234,18 +1280,27 @@ export default function RoomScreen({ navigation, route }: Props) {
                       onPress={async () => {
                         console.log('Reaction:', emoji);
                         setShowReaction(false);
-                        
-                        // ↓↓↓ 修正: Firestoreに書き込み
+
                         try {
-                          const myName = participants.find(p => p.id === localUserIdRef.current)?.name || 'Unknown';
+                          const firebaseUid = auth.currentUser?.uid;
+                          if (!firebaseUid) {
+                            console.warn('[Reaction] not authenticated');
+                            return;
+                          }
+
+                          const myName =
+                            participants.find(p => p.id === localUserIdRef.current)?.name ||
+                            auth.currentUser?.displayName ||
+                            'Unknown';
 
                           const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
                           await addDoc(reactionsRef, {
                             emoji,
-                            senderId: localUserIdRef.current,
+                            senderId: firebaseUid,
                             senderName: myName,
                             createdAt: serverTimestamp(),
                           });
+
                           console.log('[Reaction] Sent:', emoji);
                         } catch (e) {
                           console.warn('[Reaction] Send error:', e);

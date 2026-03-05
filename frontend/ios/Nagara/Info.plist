@@ -4,6 +4,8 @@
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
@@ -15,7 +17,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Nagara</string>
+    <string>$(PRODUCT_NAME)</string>
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
@@ -28,7 +30,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>tsuuwa</string>
-          <string>com.company.tsuuwa</string>
+          <string>com.yamaguchimasafumi.tsuuwa</string>
         </array>
       </dict>
       <dict>
@@ -48,7 +50,7 @@
       <false/>
       <key>NSExceptionDomains</key>
       <dict>
-        <key>57.181.137.17</key>
+        <key>api.tsuuwa.com</key>
         <dict>
           <key>NSExceptionAllowsInsecureHTTPLoads</key>
           <false/>

@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
                BuildableName = "Nagara.app"
-               BlueprintName = "Tsuuwa"
-               ReferencedContainer = "container:Tsuuwa.xcodeproj">
+               BlueprintName = "Nagara"
+               ReferencedContainer = "container:Nagara.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "TsuuwaTests.xctest"
-               BlueprintName = "TsuuwaTests"
-               ReferencedContainer = "container:Tsuuwa.xcodeproj">
+               BuildableName = "NagaraTests.xctest"
+               BlueprintName = "NagaraTests"
+               ReferencedContainer = "container:Nagara.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -56,8 +56,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "Nagara.app"
-            BlueprintName = "Tsuuwa"
-            ReferencedContainer = "container:Tsuuwa.xcodeproj">
+            BlueprintName = "Nagara"
+            ReferencedContainer = "container:Nagara.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -73,8 +73,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "Nagara.app"
-            BlueprintName = "Tsuuwa"
-            ReferencedContainer = "container:Tsuuwa.xcodeproj">
+            BlueprintName = "Nagara"
+            ReferencedContainer = "container:Nagara.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

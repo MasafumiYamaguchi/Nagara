@@ -31,7 +31,7 @@ const ToSScreen = ({navigation}: Props) => {
           <Text fontSize="2xl" fontWeight="bold" color={headingColor} mb={4}>利用規約</Text>
 
           <BodyText>
-            この規約（以下「本規約」）は、MKapps（以下「当方」）が提供するアプリケーション「Nagara」（以下「本アプリ」）の利用条件を定めるものです [cite: 1, 87]。ユーザーの皆様には、本規約に従って本アプリをご利用いただきます。
+            この規約（以下「本規約」）は、MKapps（以下「当方」）が提供するアプリケーション「Nagara」（以下「本アプリ」）の利用条件を定めるものです。ユーザーの皆様には、本規約に従って本アプリをご利用いただきます。
           </BodyText>
 
           <Divider bg={dividerColor} my={4} />
@@ -41,16 +41,16 @@ const ToSScreen = ({navigation}: Props) => {
           <BodyText>ユーザーは、本アプリを利用した時点で、本規約の全ての記載内容に同意したものとみなされます。</BodyText>
 
           <HeadingText>第2条（利用環境・権利）</HeadingText>
-          <BodyText>1. 本アプリを利用するために必要な通信機器、通信回線その他の環境は、ユーザーの責任と負担において準備するものとします [cite: 78]。</BodyText>
-          <BodyText>2. 本アプリの提供にあたり、当方は第三者（Agora.io、Firebase等）のシステムを利用します [cite: 109, 113]。ユーザーはこれに同意し、当該第三者の利用規約についても遵守するものとします。</BodyText>
+          <BodyText>1. 本アプリを利用するために必要な通信機器、通信回線その他の環境は、ユーザーの責任と負担において準備するものとします。</BodyText>
+          <BodyText>2. 本アプリの提供にあたり、当方は第三者（Agora.io、Firebase等）のシステムを利用します。ユーザーはこれに同意し、当該第三者の利用規約についても遵守するものとします。</BodyText>
           <BodyText>3. 当方は、法令に基づき開示を求められた場合を除き、ユーザーの通話内容の傍受、録音、または保存を行わず、通信の秘密を厳守します 。</BodyText>
 
           <HeadingText>第3条（禁止事項）</HeadingText>
           <BodyText>ユーザーは、本アプリの利用にあたり、以下の行為を行ってはなりません。</BodyText>
           <BodyText>・法令または公序良俗に反する行為。</BodyText>
-          <BodyText>・他のユーザーに対する誹謗中傷、脅迫、いやがらせ、またはハラスメント行為 [cite: 49]。</BodyText>
-          <BodyText>・当方または第三者の著作権、肖像権その他の知的財産権を侵害する行為（権利者の許可なく音楽、音声等を配信する行為を含みます） [cite: 35]。</BodyText>
-          <BodyText>・異性との出会いや交際、または不適切な接触を目的として本アプリを利用する行為 [cite: 13]。</BodyText>
+          <BodyText>・他のユーザーに対する誹謗中傷、脅迫、いやがらせ、またはハラスメント行為 。</BodyText>
+          <BodyText>・当方または第三者の著作権、肖像権その他の知的財産権を侵害する行為（権利者の許可なく音楽、音声等を配信する行為を含みます）。</BodyText>
+          <BodyText>・異性との出会いや交際、または不適切な接触を目的として本アプリを利用する行為。</BodyText>
           <BodyText>・相手方の同意なく通話内容を録音、録画、または公開する行為。</BodyText>
           <BodyText>・本アプリのサーバーへの過度な負荷をかける行為や、不正アクセス等の運営妨害行為。</BodyText>
           <BodyText>・その他、当方が不適切と判断する行為。</BodyText>
