@@ -32,6 +32,11 @@ type TabParamList = {
 
 const Profile = ({ navigation }: Props) => {
   const { user } = useAuthStore();
+  const temporaryDisplayName =
+    user?.displayName ||
+    (user?.email ? user.email.split('@')[0] : null) ||
+    (user?.uid ? `user_${user.uid.slice(0, 6)}` : null) ||
+    "ユーザー";
   const { colorMode: nativeBaseColorMode } = useColorMode();
   const sessionTimestamp = React.useRef(Date.now());
   const [isOpenEditProfile, setIsOpenEditProfile] = React.useState(false);
@@ -193,14 +198,14 @@ const Profile = ({ navigation }: Props) => {
               mb="4"
               bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
             >
-              {user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}
+              {temporaryDisplayName.charAt(0).toUpperCase()}
             </Avatar>
             <Heading
               size="md"
               mb="1"
               color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
             >
-              {user?.displayName || "ユーザー名"}
+              {temporaryDisplayName}
             </Heading>
             <Text
               color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}

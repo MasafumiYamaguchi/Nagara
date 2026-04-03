@@ -251,9 +251,13 @@ export default function RoomScreen({ navigation, route }: Props) {
       const userRef = doc(db, 'users', id);
       const userDoc = await getDoc(userRef);
 
+      const isNumericId = /^\d+$/.test(id);
+
       if (!userDoc.exists) {
         const fallback = `User ${id}`;
-        nameCacheRef.current[id] = fallback;
+        if (!isNumericId) {
+          nameCacheRef.current[id] = fallback;
+        }
         setParticipants(prev =>
           prev.map(p => (p.id === id ? { ...p, name: fallback } : p))
         );
@@ -416,6 +420,28 @@ export default function RoomScreen({ navigation, route }: Props) {
     return true;
   };
 
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const tryResolveAccountByUid = useCallback((uid: number | string): string | null => {
+    const uidStr = String(uid);
+    const mapped = uidAccountMapRef.current[uidStr];
+    if (mapped) return mapped;
+
+    if (!engineRef.current) return null;
+    const uidNum = Number(uidStr);
+    if (!Number.isFinite(uidNum)) return null;
+
+    try {
+      const info = engineRef.current.getUserInfoByUid(uidNum);
+      const account = info?.userAccount?.trim?.();
+      if (account) {
+        uidAccountMapRef.current[uidStr] = account;
+        return account;
+      }
+    } catch {}
+    return null;
+  }, []);
+
   // Agora 初期化 (RTCの方)
   const initAgora = useCallback(async () => {
     if (engineRef.current || !AGORA_APP_ID) return;
@@ -447,7 +473,7 @@ export default function RoomScreen({ navigation, route }: Props) {
         setAgoraUid(uid);
         joinedRef.current = true;
 
-        const accountOrUid = uidAccountMapRef.current[uid] ?? uid;
+        const accountOrUid = uidAccountMapRef.current[String(uid)] ?? String(uid);
         const localId = localUserIdRef.current ?? String(uid);
 
         // ★追加: ローカルはAuthのphotoURLを即反映しておく
@@ -481,40 +507,43 @@ export default function RoomScreen({ navigation, route }: Props) {
       onUserJoined: (_connection, remoteUid) => {
         console.log('[Agora] remote joined', remoteUid);
         const uid = String(remoteUid);
-        const initialId = uidAccountMapRef.current[uid] ?? uid;
+        const initialId = uidAccountMapRef.current[String(uid)] ?? String(uid);
         setParticipants(prev => {
           if (prev.some(p => p.id === initialId)) return prev;
           return [...prev, { id: initialId, name: `User ${uid}`, isMuted: false, avatarUrl: undefined }];
         });
 
-        // 非同期で表示名とアバターを取得
         (async () => {
           try {
-            // 少し待って onUserInfoUpdated が先に来てないかチェック
-            await new Promise(r => setTimeout(r, 300));
-            
-            const accountOrUid = uidAccountMapRef.current[uid] ?? uid;
-            const displayName = await getDisplayName(accountOrUid);
-            const avatarUrl = avatarCacheRef.current[accountOrUid];
-            
-            if (!displayName) return;
+            await sleep(120);
 
-            // ★修正: uid でも accountOrUid でもマッチするように更新
+            let account = tryResolveAccountByUid(uid);
+            for (let i = 0; i < 5 && !account; i += 1) {
+              await sleep(180);
+              account = tryResolveAccountByUid(uid);
+            }
+
+            // account が取れたときだけ Firestore を引く
+            if (!account) return;
+
+            const displayName = await getDisplayName(account);
+            const avatarUrl = avatarCacheRef.current[account];
+
             setParticipants(prev =>
               prev.map(p => {
-                if (p.id === uid || p.id === accountOrUid) {
-                  return { 
-                    ...p, 
-                    id: accountOrUid, 
-                    name: displayName, 
-                    avatarUrl: avatarUrl ?? p.avatarUrl 
+                if (p.id === uid || p.id === account) {
+                  return {
+                    ...p,
+                    id: account,
+                    name: displayName ?? p.name,
+                    avatarUrl: avatarUrl ?? p.avatarUrl,
                   };
                 }
                 return p;
               })
             );
           } catch (e) {
-            console.warn('[Agora] getDisplayName error', e);
+            console.warn('[Agora] resolve account error', e);
             crashlytics().recordError(e as Error);
           }
         })();
@@ -563,7 +592,10 @@ export default function RoomScreen({ navigation, route }: Props) {
             }
           }).catch(() => {});
         } else {
-          getDisplayName(uidStr).catch(() => {});
+          const resolved = tryResolveAccountByUid(uidStr);
+          if (resolved) {
+           getDisplayName(uidStr).catch(() => {});
+          }
         }
       },
       onUserOffline: (_connection, remoteUid) => {
@@ -618,7 +650,7 @@ export default function RoomScreen({ navigation, route }: Props) {
     });
 
     engineRef.current = engine;
-  }, [getDisplayName, auth, agoraUid, fetchNewTokenAndRenew]);
+  }, [getDisplayName, auth, agoraUid, fetchNewTokenAndRenew, tryResolveAccountByUid]);
 
   useEffect(() => {
     console.log('[Reaction] Start listening');
@@ -688,10 +720,9 @@ export default function RoomScreen({ navigation, route }: Props) {
     setTokenError(null);
     try {
       console.log('[Agora] fetch token...');
-      const currentUser = auth.currentUser;
-      const userAccountParam = currentUser ? encodeURIComponent(currentUser.uid) : '';
-      const tokenUrl =
-        `https://api.tsuuwa.com/rooms/${roomId}/token${userAccountParam ? `?userAccount=${userAccountParam}` : ''}`;
+      const currentUser = (await waitForAuthUser()) as { uid: string };
+      const userAccountParam = encodeURIComponent(currentUser.uid);
+      const tokenUrl = `https://api.tsuuwa.com/rooms/${roomId}/token?userAccount=${userAccountParam}`;
       const res = await authFetch(tokenUrl);
       if (!res.ok) throw new Error(`Failed token: ${res.status}`);
       const data = await res.json();
@@ -807,7 +838,7 @@ export default function RoomScreen({ navigation, route }: Props) {
       tokenLoadingRef.current = false;
       setTokenLoading(false);
     }
-  }, [roomId, initAgora,  auth.currentUser, authFetch]);
+  }, [roomId, initAgora, authFetch, waitForAuthUser]);
 
   // 初回レンダリング時にトークン取得 & join
   useEffect(() => {

@@ -3,6 +3,7 @@ import { getApp } from '@react-native-firebase/app';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp, deleteDoc } from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAppleFirebaseCredential } from './appleAuth';
 
 // アプリインスタンスを取得 (モジュール式)
 const app = getApp();
@@ -18,9 +19,15 @@ GoogleSignin.configure({
 });
 
 // プロフィールのリロードを行う関数
-export async function reloadUserProfile() {
+type ProfileFallback = {
+  displayName?: string | null;
+  email?: string | null;
+};
+
+export async function reloadUserProfile(fallback: ProfileFallback = {}) {
   const user = auth.currentUser;
   if (!user) return;
+
   try {
     await user.reload();
     const u = auth.currentUser;
@@ -30,14 +37,25 @@ export async function reloadUserProfile() {
     const snap = await getDoc(userRef);
     const existing = snap.data() ?? {};
 
-    await setDoc(userRef, {
+    const nextDisplayName = buildDisplayName(
+      u.uid,
+      fallback.email || u.email || existing.email || null,
+      fallback.displayName || u.displayName || existing.displayName || null
+    );
+
+    const payload = {
       uid: u.uid,
-      email: u.email,
-      displayName: u.displayName || existing.displayName || '名無し',
+      email: fallback.email || u.email || existing.email || null,
+      displayName: nextDisplayName,
       photoURL: u.photoURL || existing.photoURL || '',
       updatedAt: serverTimestamp(),
-      ...(snap.exists() ? {} : { createdAt: serverTimestamp() }),
-    }, { merge: true });
+    };
+
+    await setDoc(
+      userRef,
+      payload,
+      { merge: true }
+    );
   } catch (e) {
     console.warn('Failed to reload user profile', e);
   }
@@ -68,12 +86,19 @@ export function initializeAuthObserver() {
     // Firestore への同期は既存データとマージ
     const userRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userRef);
+    const existing = userDoc.data() ?? {};
+
+    const nextDisplayName = buildDisplayName(
+      user.uid,
+      user.email || existing.email || null,
+      user.displayName || existing.displayName || null
+    );
 
     const payload = {
       uid: user.uid,
-      email: user.email,
-      displayName: user.displayName || '名無し',
-      photoURL: user.photoURL || '',
+      email: user.email || existing.email || null,
+      displayName: nextDisplayName,
+      photoURL: user.photoURL || existing.photoURL || '',
       updatedAt: serverTimestamp(),
     };
 
@@ -112,12 +137,25 @@ export async function deleteUserData() {
   if (!user) throw new Error('No authenticated user');
 
   // 再認証（requires-recent-login 対策）
-  await GoogleSignin.hasPlayServices();
-  await GoogleSignin.signIn();
-  const { idToken } = await GoogleSignin.getTokens();
-  if (!idToken) throw new Error('Google idToken の取得に失敗');
-  const googleCredential = GoogleAuthProvider.credential(idToken);
-  await user.reauthenticateWithCredential(googleCredential);
+  const providerIds = (user.providerData || [])
+    .map((p) => p?.providerId)
+    .filter(Boolean);
+
+  if (providerIds.includes('apple.com')) {
+    const { firebaseCredential } = await createAppleFirebaseCredential({
+      requestScopes: false,
+    });
+    await user.reauthenticateWithCredential(firebaseCredential);
+  } else if (providerIds.includes('google.com')) {
+    await GoogleSignin.hasPlayServices();
+    await GoogleSignin.signIn();
+    const { idToken } = await GoogleSignin.getTokens();
+    if (!idToken) throw new Error('Google idToken の取得に失敗');
+    const googleCredential = GoogleAuthProvider.credential(idToken);
+    await user.reauthenticateWithCredential(googleCredential);
+  } else {
+    throw new Error('未対応の認証プロバイダです');
+  }
 
   // Firestoreのユーザードキュメント削除
   const userRef = doc(db, 'users', user.uid);
@@ -133,4 +171,16 @@ export async function deleteUserData() {
   // AsyncStorageのToS/Privacy同意フラグもリセット
   await AsyncStorage.removeItem('acceptedToS');
   await AsyncStorage.removeItem('acceptedPrivacy');
+}
+
+function buildDisplayName(uid: string, email?: string | null, current?: string | null) {
+  // 既存が有効なら優先（"名無し" はプレースホルダ扱い）
+  if (current && current !== '名無し') return current;
+
+  if (email) {
+    const local = email.split('@')[0]?.trim();
+    if (local) return local;
+  }
+
+  return `user_${uid.slice(0, 6)}`;
 }

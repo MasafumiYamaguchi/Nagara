@@ -1,4 +1,3 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   Box,
   VStack,
@@ -8,28 +7,20 @@ import {
   useToast,
   Icon,
 } from "native-base";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { MaterialIcons } from '@expo/vector-icons';
 import { Platform, Alert } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { signInWithApple } from '../src/services/appleAuth';
 
-import { RootStackParamList } from "./navigation/types";
 import { signInWithGoogle, reloadUserProfile } from "../src/services/authService";
-
-import { useAuthStore } from "../src/store/authStore";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { log, getCrashlytics } from "@react-native-firebase/crashlytics";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Login">;
-
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false); 
   const toast = useToast();
-  const user = useAuthStore((state) => state.user);
 
   const crashlytics = getCrashlytics();
 
@@ -59,11 +50,20 @@ export default function LoginScreen({ navigation }: Props) {
 
   const onAppleLoginPress = async () => {
     try {
-      await signInWithApple();
-      // ここでホーム遷移とか既存フローにつなぐ
-    } catch (e: any) {
-      if (e?.code === 'ERR_REQUEST_CANCELED') return; // ユーザーキャンセル
-      Alert.alert('Appleログイン失敗', e?.message ?? '不明なエラー');
+      const result = await signInWithApple();
+      await reloadUserProfile({
+        displayName: result.appleFullName,
+        email: result.appleEmail,
+      });
+
+      toast.show({
+        title: 'Appleログイン成功',
+        variant: 'solid',
+      });
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      if (err?.code === 'ERR_REQUEST_CANCELED') return;
+      Alert.alert('Appleログイン失敗', err?.message ?? '不明なエラー');
     }
   };
 

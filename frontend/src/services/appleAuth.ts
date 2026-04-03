@@ -1,7 +1,9 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
-import { OAuthProvider, signInWithCredential } from 'firebase/auth';
-import { auth } from '../../firebase.json'; // ← 既存のFirebase初期化ファイルに合わせてパス調整してね
+import { getApp } from '@react-native-firebase/app';
+import { getAuth, AppleAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+
+const auth = getAuth(getApp());
 
 function randomNonce(length = 32) {
   const chars =
@@ -13,7 +15,13 @@ function randomNonce(length = 32) {
   return result;
 }
 
-export async function signInWithApple() {
+type CreateAppleCredentialOptions = {
+  requestScopes?: boolean;
+};
+
+export async function createAppleFirebaseCredential(
+  options: CreateAppleCredentialOptions = {}
+) {
   const rawNonce = randomNonce();
   const hashedNonce = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
@@ -21,22 +29,45 @@ export async function signInWithApple() {
   );
 
   const credential = await AppleAuthentication.signInAsync({
-    requestedScopes: [
-      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-      AppleAuthentication.AppleAuthenticationScope.EMAIL
-    ],
-    nonce: hashedNonce
+    requestedScopes: options.requestScopes
+      ? [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ]
+      : [],
+    nonce: hashedNonce,
   });
 
   if (!credential.identityToken) {
     throw new Error('Apple identity token が取得できなかった');
   }
 
-  const provider = new OAuthProvider('apple.com');
-  const firebaseCredential = provider.credential({
-    idToken: credential.identityToken,
+  const firebaseCredential = AppleAuthProvider.credential(
+    credential.identityToken,
     rawNonce
+  );
+
+  return { firebaseCredential, appleCredential: credential };
+}
+
+export async function signInWithApple() {
+  const { firebaseCredential, appleCredential } = await createAppleFirebaseCredential({
+    requestScopes: true,
   });
 
-  return signInWithCredential(auth, firebaseCredential);
+  const credentialResult = await signInWithCredential(auth, firebaseCredential);
+
+  const appleFullName = [
+    appleCredential.fullName?.givenName,
+    appleCredential.fullName?.familyName,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim() || null;
+
+  return {
+    credentialResult,
+    appleFullName,
+    appleEmail: appleCredential.email ?? null,
+  };
 }

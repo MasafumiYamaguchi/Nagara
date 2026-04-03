@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Box, Text, Input, ScrollView, VStack, HStack, Pressable, Badge, Divider,
   Center, Heading, Fab, Icon, Button, TextArea, KeyboardAvoidingView, useColorMode, Modal
@@ -6,7 +6,6 @@ import {
 import { AntDesign } from "@expo/vector-icons";
 import { Platform, RefreshControl, Alert, View } from "react-native"; // Viewを追加
 import Constants from 'expo-constants';
-import { initializeAuthObserver } from "../src/services/authService";
 import auth from '@react-native-firebase/auth';
 
 // Bottom Tab用の型定義をインポート
@@ -48,7 +47,7 @@ const Home = ({ route, navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const authFetch = async (url: string, options: RequestInit = {}) => {
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
     const user = auth().currentUser;
     if (!user) throw new Error("ログインしてない");
     const idToken = await user.getIdToken();
@@ -60,9 +59,9 @@ const Home = ({ route, navigation }: Props) => {
         Authorization: `Bearer ${idToken}`,
       },
     });
-  };
+  }, []);
 
-  const fetchRooms = async () => {
+  const fetchRooms = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -81,12 +80,11 @@ const Home = ({ route, navigation }: Props) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     fetchRooms();
-    initializeAuthObserver();
-  }, [route, navigation]);
+  }, [fetchRooms, route, navigation]);
 
   const filteredRooms = rooms.filter(
     (room) =>
