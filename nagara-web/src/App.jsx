@@ -1,121 +1,52 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import "./App.css";
+import Privacy from "./privacy";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const page = new URLSearchParams(window.location.search).get("page");
+  const isPrivacy = page === "privacy";
+  const supportEmail = "mkapps.app@gmail.com";
+  const mailSubject = encodeURIComponent("Nagara お問い合わせ");
+  const mailBody = encodeURIComponent(
+    "お問い合わせ内容:\n\n---\n利用端末:\nOSバージョン:\nアプリバージョン:\n"
+  );
+  const mailtoLink = `mailto:${supportEmail}?subject=${mailSubject}&body=${mailBody}`;
+  const gmailComposeLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+    supportEmail
+  )}&su=${mailSubject}&body=${mailBody}`;
+
+  if (isPrivacy) {
+    return <Privacy />;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
+    <main className="wrap">
+      <section className="card" aria-labelledby="support-title">
+        <h1 id="support-title">Nagara サポートページ</h1>
+
+        <section className="support-block" aria-labelledby="contact-title">
+          <h2 id="contact-title">お問い合わせ</h2>
+          <p>返信の目安：1週間以内（目安）</p>
+          <p>メーラーが起動しない場合は、Webメールをご利用ください。</p>
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            メール：{supportEmail}
+            <br />
+            アプリ内：設定 &gt; ヘルプとサポート
           </p>
+        </section>
+
+        <div className="actions">
+          <button onClick={() => (window.location.href = mailtoLink)}>
+            お問い合わせ先
+          </button>
+          <button onClick={() => window.open(gmailComposeLink, "_blank", "noopener,noreferrer")}>
+            Webメールでお問い合わせ
+          </button>
+          <button onClick={() => (window.location.search = "?page=privacy")}>
+            プライバシーポリシー
+          </button>
         </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+        <p className="policy-footer">MKapps 2026</p>
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </main>
+  );
 }
-
-export default App
