@@ -56,6 +56,8 @@ import { getAuth } from '@react-native-firebase/auth';
 
 import ReportUserDialog from './components/reportuserdialog';
 
+import Profmodal from './components/profmodal';
+
 // BGM用意
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { get } from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
@@ -69,6 +71,7 @@ interface Participant {
   isMuted: boolean;
   avatarUrl?: string;
   speakingVolume?: number;
+  profileField?: string;
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, "Room">;
@@ -130,6 +133,8 @@ export default function RoomScreen({ navigation, route }: Props) {
   const avatarCacheRef = useRef<Record<string, string>>({});
   const sessionTimestamp = useRef(Date.now());
   const reactionList = ['👍', '🎉', '😂', '😮', '😢', '🙏'];
+  // 追加: プロフィールフィールドのキャッシュ
+  const profileCacheRef = useRef<Record<string, string>>({});
   // 追加: リアクションボタンの見た目サイズ
   const REACTION_ITEM_SIZE = 36;
   const REACTION_EMOJI_SIZE = 28;
@@ -144,6 +149,11 @@ export default function RoomScreen({ navigation, route }: Props) {
   // 通報用のストア
   const [isOpenReportDialog, setIsOpenReportDialog] = useState(false);
   const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
+
+  // プロフィールモーダル用のストア
+  const [isOpenProfileModal, setIsOpenProfileModal] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+
 
   // BGM再生管理
     useEffect(() => {
@@ -266,7 +276,8 @@ export default function RoomScreen({ navigation, route }: Props) {
 
       const data = userDoc.data();
       const displayName = (data?.displayName as string) ?? `User ${id}`;
-      
+      const profileField = (data?.profileField as string) ?? undefined;
+
       // ★修正: photoURL は Firestore から取る。自分の場合だけ Auth からフォールバック
       let photoUrl = (data?.photoURL as string) ?? (data?.avatarUrl as string) ?? undefined;
       
@@ -276,17 +287,18 @@ export default function RoomScreen({ navigation, route }: Props) {
       }
 
       nameCacheRef.current[id] = displayName;
+      profileCacheRef.current[id] = profileField;
       if (photoUrl) {
         avatarCacheRef.current[id] = photoUrl;
       }
 
       setParticipants(prev =>
         prev.map(p =>
-          p.id === id ? { ...p, name: displayName, avatarUrl: photoUrl } : p
+          p.id === id ? { ...p, name: displayName, avatarUrl: photoUrl, profileField: profileField } : p
         )
       );
 
-      console.log('[Firestore] users/%s ->', id, { displayName, photoUrl: photoUrl?.slice(0, 50) });
+      console.log('[Firestore] users/%s ->', id, { displayName, photoUrl: photoUrl?.slice(0, 50), profileField });
       return displayName;
     } catch (e) {
       console.warn('getDisplayName failed', e);
@@ -491,6 +503,7 @@ export default function RoomScreen({ navigation, route }: Props) {
             isMuted: local?.isMuted ?? false,
             avatarUrl: local?.avatarUrl ?? (authUser?.photoURL ?? undefined),
             speakingVolume: 0,
+            profileField: local?.profileField ?? undefined,
           };
           const others = prev.filter(p => p.id !== 'local' && p.id !== String(uid));
           return [me, ...others];
@@ -537,6 +550,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                     id: account,
                     name: displayName ?? p.name,
                     avatarUrl: avatarUrl ?? p.avatarUrl,
+                    profileField: p.profileField, // ここは変えない（Firestoreからの反映を優先）
                   };
                 }
                 return p;
@@ -581,11 +595,12 @@ export default function RoomScreen({ navigation, route }: Props) {
           getDisplayName(account).then(() => {
             const avatarUrl = avatarCacheRef.current[account];
             const displayName = nameCacheRef.current[account];
-            if (displayName || avatarUrl) {
+            const profileField = profileCacheRef.current[account];
+            if (displayName || avatarUrl || profileField) {
               setParticipants(prev =>
                 prev.map(p =>
                   p.id === account
-                    ? { ...p, name: displayName ?? p.name, avatarUrl: avatarUrl ?? p.avatarUrl }
+                    ? { ...p, name: displayName ?? p.name, avatarUrl: avatarUrl ?? p.avatarUrl, profileField: profileField ?? p.profileField }
                     : p
                 )
               );
@@ -1006,7 +1021,17 @@ export default function RoomScreen({ navigation, route }: Props) {
     setParticipants([]);
   };
 
+  const openProfile = useCallback((participantId: string) => {
+    const target = participants.find((p) => p.id === participantId);
+    if (!target) return;
+    setSelectedParticipant(target);
+    setIsOpenProfileModal(true);
+  }, [participants]);
 
+  const closeProfile = useCallback(() => {
+    setIsOpenProfileModal(false);
+    setSelectedParticipant(null);
+  }, []);
 
   return (
     <Box flex={1} bg={bgColor} safeArea>
@@ -1112,7 +1137,7 @@ export default function RoomScreen({ navigation, route }: Props) {
                       )}
                       placement="left top"
                     >
-                      <Menu.Item onPress={() => console.log('プロフィールを見る', participant.id)}>
+                      <Menu.Item onPress={() => openProfile(participant.id)}>
                         プロフィールを見る
                       </Menu.Item>
                       <Menu.Item onPress={() => { 
@@ -1386,6 +1411,14 @@ export default function RoomScreen({ navigation, route }: Props) {
           isOpen={isOpenReportDialog}
           onClose={() => setIsOpenReportDialog(false)}
           reportedUserId={reportedUserId ?? ''} // ここに通報対象のユーザーIDを渡す
+        />
+      )}
+      {/* プロフィールモーダル */}
+      {selectedParticipant && (
+        <Profmodal
+          isOpen={isOpenProfileModal}
+          onClose={closeProfile}
+          participant={selectedParticipant}
         />
       )}
     </Box>

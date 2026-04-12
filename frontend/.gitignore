@@ -28,6 +28,12 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+*.keystore
+google-services.json
+GoogleService-Info.plist
+android/app/google-services.json
+ios/Nagara/GoogleService-Info.plist
+ios-build.log
 
 # local env files
 .env*.local
