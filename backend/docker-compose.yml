@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    working_dir: /app
+    ports:
+      - "127.0.0.1:3000:3000"   # 外部に直接出さない
+    volumes:
+      - ./logs:/app/logs
+      - .:/app
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL=${DATABASE_SSL}
+    command: npm run dev
+    env_file:
+      - ./.env
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: tsuuwa
+      POSTGRES_PASSWORD: tsuuwa123
+      POSTGRES_DB: tsuuwa
+    volumes:
+      - db_store:/var/lib/postgresql/data
+
+volumes:
+  db_store:

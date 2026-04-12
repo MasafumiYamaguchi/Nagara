@@ -1,0 +1,330 @@
+:root {
+  --bg: #f9fafb;
+  --surface: #ffffff;
+  --surface-soft: #f3f4f6;
+  --line: #e5e7eb;
+  --ink: #111827;
+  --ink-sub: #6b7280;
+  --blue: #3b82f6;
+  --blue-press: #2563eb;
+  --radius-card: 12px;
+  --radius-chip: 999px;
+  --shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Hiragino Kaku Gothic ProN", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.55;
+}
+
+.wrap {
+  min-height: 100vh;
+  padding: 0; /* 下の余白を消して縦いっぱいにする */
+}
+
+.card {
+  width: min(880px, 100%);
+  min-height: 100vh; /* ここが縦いっぱいの本体 */
+  margin: 0 auto;
+  background: var(--surface);
+  border: 0;         /* カード感を消す */
+  border-radius: 0;  /* カード感を消す */
+  box-shadow: none;  /* カード感を消す */
+  overflow: hidden;
+  animation: fadeUp 380ms ease-out both;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge {
+  display: inline-block;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-chip);
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  justify-content: center;
+  align-items: center;
+}
+
+h1 {
+  margin: 12px 0 8px;
+  font-size: clamp(24px, 4vw, 32px);
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.lead {
+  margin: 0;
+  color: var(--ink-sub);
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.card > .badge,
+.card > h1,
+.card > .lead {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.card > .badge {
+margin-top: 20px;
+margin-left: auto;
+margin-right: auto;
+width: fit-content;
+}
+
+.card > .lead {
+  margin-bottom: 16px;
+}
+
+.support-block {
+  margin: 0 16px 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.support-block h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #374151;
+}
+
+.support-block p {
+  margin: 0 0 8px;
+  color: var(--ink-sub);
+  font-size: 14px;
+}
+
+.support-block p:last-child {
+  margin-bottom: 0;
+}
+
+#support-title {
+  font-weight: 600;
+}
+
+.faq-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.faq-list li {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: #374151;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 24px 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--blue);
+  color: #fff;
+  transition: transform 0.15s ease, background 0.2s ease, opacity 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  background: var(--blue-press);
+}
+
+button:active {
+  transform: translateY(0);
+  opacity: 0.92;
+}
+
+button.ghost {
+  background: transparent;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+button.ghost:hover {
+  background: #f3f4f6;
+}
+
+@media (max-width: 640px) {
+  .card > .badge,
+  .card > h1,
+  .card > .lead {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .support-block {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+
+  .actions {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  button {
+    width: 100%;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --surface: #1f2937;
+    --surface-soft: #111827;
+    --line: #374151;
+    --ink: #f3f4f6;
+    --ink-sub: #9ca3af;
+    --shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .badge {
+    background: #1e3a8a;
+    color: #bfdbfe;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .support-block h2,
+  .faq-list li {
+    color: #e5e7eb;
+  }
+
+  button.ghost {
+    color: #e5e7eb;
+    border-color: #4b5563;
+  }
+
+  button.ghost:hover {
+    background: #374151;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.privacy-card {
+  padding-bottom: 36px;
+  text-align: left;
+  justify-content: center;
+  align-items: center;;
+}
+
+.policy-divider {
+  margin: 20px 24px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.policy-text,
+.policy-section {
+  margin: 0 24px;
+}
+
+.policy-text {
+  color: var(--ink-sub);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.policy-section {
+  margin-top: 18px;
+}
+
+.policy-section h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.policy-section p {
+  margin: 0 0 8px;
+  color: var(--ink-sub);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+@media (max-width: 640px) {
+  .policy-divider,
+  .policy-text,
+  .policy-section {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+}
+
+.back-button {
+background: transparent;
+border: none;
+box-shadow: none;
+color: var(--ink-sub);
+padding: 0;
+margin: 16px 24px 0;
+font-size: 14px;
+font-weight: 600;
+text-align: left;
+display: inline-block;
+}
+
+.back-button:hover,
+.back-button:active {
+background: transparent;
+transform: none;
+opacity: 1;
+}
+
+.policy-footer {
+margin: 28px 24px 0;
+text-align: center;
+color: var(--ink-sub);
+font-size: 13px;
+letter-spacing: 0.02em;
+}

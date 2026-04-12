@@ -1,0 +1,1427 @@
+import React, { useCallback, useState, useRef, useEffect } from 'react';
+import { Platform, PermissionsAndroid } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from './navigation/types';
+import {
+  Box,
+  VStack,
+  HStack,
+  Text,
+  Button,
+  Avatar,
+  Badge,
+  Icon,
+  IconButton,
+  useColorModeValue,
+  Center,
+  AlertDialog,
+  useDisclose,
+  FlatList,
+  Fab,
+  PresenceTransition,
+  Pressable,
+  Menu,
+  Select,
+  CheckIcon,
+  Slider,
+} from 'native-base';
+import { Ionicons } from '@expo/vector-icons';
+import constants from 'expo-constants';
+import {
+  createAgoraRtcEngine,
+  IRtcEngine,
+  ChannelProfileType,
+  ClientRoleType,
+  ChannelMediaOptions,
+} from 'react-native-agora';
+
+import { getApp } from '@react-native-firebase/app';
+
+import crashlytics from '@react-native-firebase/crashlytics';
+
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+} from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
+
+import ReportUserDialog from './components/reportuserdialog';
+
+import Profmodal from './components/profmodal';
+
+// BGM用意
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { get } from 'react-native/Libraries/TurboModule/TurboModuleRegistry';
+const BONFIRE_SRC = require('../assets/music/bonfire.mp3');
+const BROWNNOISE_SRC = require('../assets/music/brownnoise.mp3');
+
+// 参加者の情報
+interface Participant {
+  id: string;
+  name: string;
+  isMuted: boolean;
+  avatarUrl?: string;
+  speakingVolume?: number;
+  profileField?: string;
+}
+
+type Props = NativeStackScreenProps<RootStackParamList, "Room">;
+
+const AGORA_APP_ID = constants.expoConfig?.extra?.agoraAppId;
+const API_BASE_URL = constants.expoConfig?.extra?.apiBaseUrl || 'https://api.tsuuwa.com';
+
+export default function RoomScreen({ navigation, route }: Props) {
+  const { roomId, name } = route.params;  
+  const [isMuted, setIsMuted] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [mutedParticipantIds, setMutedParticipantIds] = useState<Record<string, boolean>>({});
+  const [bgmSound, setBgmSound] = useState<Audio.Sound | null>(null);
+  const [selectedBgm, setSelectedBgm] = useState<'none' | 'bonfire' | 'brownnoise'>('none');
+  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
+  const [bgmVolume, setBgmVolume] = useState(0.4);
+  // ★追加: 誰がどのリアクション中かを管理するState
+  const [activeReactions, setActiveReactions] = useState<Record<string, string>>({});
+
+  const { isOpen, onOpen, onClose } = useDisclose();
+  const cancelRef = React.useRef(null);
+
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const headerBg = useColorModeValue('white', 'gray.800');
+  const reactionFabBg = useColorModeValue('rgba(255,255,255,0.55)', 'rgba(250,250,250,0.18)');
+  const reactionFabBorder = useColorModeValue('rgba(255,255,255,0.25)', 'rgba(255,255,255,0.18)');
+  const reactionFabPressed = useColorModeValue('rgba(255,255,255,0.20)', 'rgba(0,0,0,0.35)');
+  const reactionFabIconColor = useColorModeValue('black', 'white');
+  const reactionTrayBorder = useColorModeValue('rgba(255,255,255,0.28)', 'rgba(255,255,255,0.25)');
+  const reactionItemPressed = useColorModeValue('white:alpha.20', 'black:alpha.30');
+
+  // Agora 認証関連
+  const [agoraToken, setAgoraToken] = useState<string | null>(null);
+  const [agoraUid, setAgoraUid] = useState<number | null>(null);
+  const [tokenLoading, setTokenLoading] = useState(false);
+  const tokenLoadingRef = useRef(false); // ← 追加: 多重取得防止
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const tokenExpireAtRef = useRef<number | null>(null);
+  const [agoraUserAccount, setAgoraUserAccount] = useState<string | null>(null);
+  const localUserIdRef = useRef<string>('local');
+  const agoraUserAccountRef = useRef<string | null>(null);
+
+  // 追加: presenceセッション管理
+  const presenceSessionIdRef = useRef<string | null>(null);
+  const presenceEndedRef = useRef(false);
+
+  // リアクションボタン用
+  const [showReaction, setShowReaction] = useState(false);
+  // FAB の位置を一元化（トレーもそこ基準に出す）
+  const insets = useSafeAreaInsets();
+  const FAB_SIZE = 56; // NativeBaseのデフォルトFABサイズ想定
+  const REACTION_FAB_BOTTOM = 26 + insets.bottom;     // Homeインジケータを避ける
+  const REACTION_FAB_RIGHT = 4;
+
+  // 追加: displayName キャッシュ（同じユーザーを何度も読まない）
+  const nameCacheRef = useRef<Record<string, string>>({});
+  // 追加: アバターURLのキャッシュ
+  const avatarCacheRef = useRef<Record<string, string>>({});
+  const sessionTimestamp = useRef(Date.now());
+  const reactionList = ['👍', '🎉', '😂', '😮', '😢', '🙏'];
+  // 追加: プロフィールフィールドのキャッシュ
+  const profileCacheRef = useRef<Record<string, string>>({});
+  // 追加: リアクションボタンの見た目サイズ
+  const REACTION_ITEM_SIZE = 36;
+  const REACTION_EMOJI_SIZE = 28;
+
+  // アプリインスタンスを取得 
+    const app = getApp();
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+  // Agoraのuid→userAccountのマップ
+  const uidAccountMapRef = useRef<Record<string, string>>({});
+
+  // 通報用のストア
+  const [isOpenReportDialog, setIsOpenReportDialog] = useState(false);
+  const [reportedUserId, setReportedUserId] = useState<string | undefined>(undefined);
+
+  // プロフィールモーダル用のストア
+  const [isOpenProfileModal, setIsOpenProfileModal] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+
+
+  // BGM再生管理
+    useEffect(() => {
+      Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,              // ← ここ重要！マイクを生かす
+        playsInSilentModeIOS: true,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: false,
+      }).catch(() => {});
+    }, []);
+
+  // BGMの読み込み＆再生（ループ）
+  const loadAndPlayBgm = useCallback(
+    async (key: 'bonfire' | 'brownnoise') => {
+      try {
+        if (bgmSound) {
+          await bgmSound.stopAsync().catch(() => {});
+          await bgmSound.unloadAsync().catch(() => {});
+        }
+        const source = key === 'bonfire' ? BONFIRE_SRC : BROWNNOISE_SRC;
+        const { sound } = await Audio.Sound.createAsync(source, {
+          shouldPlay: true,
+          isLooping: true,
+          volume: bgmVolume,
+        });
+        setBgmSound(sound);
+        setIsBgmPlaying(true);
+      } catch (e) {
+        console.warn('BGM load error', e);
+      }
+    },
+    [bgmSound, bgmVolume]
+  );
+
+  // セレクト変更時
+  const onChangeBgm = useCallback(
+    async (value: string) => {
+      const v = value as 'none' | 'bonfire' | 'brownnoise';
+      setSelectedBgm(v);
+      if (v === 'none') {
+        if (bgmSound) {
+          try { await bgmSound.stopAsync(); await bgmSound.unloadAsync(); } finally {}
+          setBgmSound(null);
+        }
+        setIsBgmPlaying(false);
+        return;
+      }
+      await loadAndPlayBgm(v);
+    },
+    [bgmSound, loadAndPlayBgm]
+  );
+
+  // 再生/一時停止トグル
+  const toggleBgm = useCallback(async () => {
+    if (selectedBgm === 'none') return;
+    if (!bgmSound) {
+      await loadAndPlayBgm(selectedBgm === 'bonfire' ? 'bonfire' : 'brownnoise');
+      return;
+    }
+    const st = await bgmSound.getStatusAsync();
+    if ('isPlaying' in st && st.isPlaying) {
+      await bgmSound.pauseAsync();
+      setIsBgmPlaying(false);
+    } else {
+      await bgmSound.playAsync();
+      setIsBgmPlaying(true);
+    }
+  }, [bgmSound, selectedBgm, loadAndPlayBgm]);
+
+  // 音量反映
+  useEffect(() => {
+    if (bgmSound) bgmSound.setVolumeAsync(bgmVolume).catch(() => {});
+  }, [bgmSound, bgmVolume]);
+
+  // アンマウント時にBGM解放
+  useEffect(() => {
+    return () => {
+      if (bgmSound) {
+        try { bgmSound.stopAsync(); bgmSound.unloadAsync(); } catch {}
+      }
+    };
+  }, [bgmSound]);
+
+  // 追加/修正: Firestore から表示名とアバターURLを取得
+  const getDisplayName = useCallback(async (id: string) => {
+    if (!id) return null;
+
+    const authUser = auth.currentUser;
+    const myUid = authUser?.uid;
+
+    // キャッシュがあれば即反映
+    if (nameCacheRef.current[id]) {
+      const cachedPhoto = avatarCacheRef.current[id];
+      setParticipants(prev =>
+        prev.map(p =>
+          p.id === id ? { ...p, name: nameCacheRef.current[id], avatarUrl: cachedPhoto } : p
+        )
+      );
+      return nameCacheRef.current[id];
+    }
+
+    try {
+      const userRef = doc(db, 'users', id);
+      const userDoc = await getDoc(userRef);
+
+      const isNumericId = /^\d+$/.test(id);
+
+      if (!userDoc.exists) {
+        const fallback = `User ${id}`;
+        if (!isNumericId) {
+          nameCacheRef.current[id] = fallback;
+        }
+        setParticipants(prev =>
+          prev.map(p => (p.id === id ? { ...p, name: fallback } : p))
+        );
+        return fallback;
+      }
+
+      const data = userDoc.data();
+      const displayName = (data?.displayName as string) ?? `User ${id}`;
+      const profileField = (data?.profileField as string) ?? undefined;
+
+      // ★修正: photoURL は Firestore から取る。自分の場合だけ Auth からフォールバック
+      let photoUrl = (data?.photoURL as string) ?? (data?.avatarUrl as string) ?? undefined;
+      
+      // 自分の場合のみ、Firestore に photoURL がなければ Auth から取る
+      if (!photoUrl && id === myUid && authUser?.photoURL) {
+        photoUrl = authUser.photoURL;
+      }
+
+      nameCacheRef.current[id] = displayName;
+      profileCacheRef.current[id] = profileField;
+      if (photoUrl) {
+        avatarCacheRef.current[id] = photoUrl;
+      }
+
+      setParticipants(prev =>
+        prev.map(p =>
+          p.id === id ? { ...p, name: displayName, avatarUrl: photoUrl, profileField: profileField } : p
+        )
+      );
+
+      console.log('[Firestore] users/%s ->', id, { displayName, photoUrl: photoUrl?.slice(0, 50), profileField });
+      return displayName;
+    } catch (e) {
+      console.warn('getDisplayName failed', e);
+      crashlytics().recordError(e as Error);
+      const fallback = `User ${id}`;
+      nameCacheRef.current[id] = fallback;
+      setParticipants(prev =>
+        prev.map(p => (p.id === id ? { ...p, name: fallback } : p))
+      );
+      return fallback;
+    }
+  }, [db, auth.currentUser]);
+
+  const waitForAuthUser = useCallback((timeoutMs = 8000) => {
+    return new Promise((resolve, reject) => {
+      if (auth.currentUser) return resolve(auth.currentUser);
+
+      const timer = setTimeout(() => {
+        unsub();
+        reject(new Error('auth user timeout'));
+      }, timeoutMs);
+
+      const unsub = auth.onAuthStateChanged((u) => {
+        if (u) {
+          clearTimeout(timer);
+          unsub();
+          resolve(u);
+        }
+      });
+    });
+  }, [auth]);
+
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+    const user = (await waitForAuthUser()) as { getIdToken: () => Promise<string> };
+    const idToken = await user.getIdToken();
+
+    console.log('[authFetch]', options.method || 'GET', url);
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+  }, [waitForAuthUser]);
+
+  const startPresence = useCallback(async () => {
+    if (presenceSessionIdRef.current) return;
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/rooms/${roomId}/presence/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`presence/start failed: ${res.status} ${text}`);
+      }
+      const data = await res.json();
+      presenceSessionIdRef.current = data.sessionId;
+      presenceEndedRef.current = false;
+      console.log('[Presence] started:', data.sessionId);
+    } catch (e) {
+      console.warn('[Presence] start error:', e);
+      crashlytics().recordError(e as Error);
+    }
+  }, [authFetch, roomId]);
+
+  const endPresence = useCallback(async () => {
+    if (!presenceSessionIdRef.current || presenceEndedRef.current) return;
+
+    try {
+      const res = await authFetch(`${API_BASE_URL}/rooms/${roomId}/presence/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: presenceSessionIdRef.current }),
+      });
+
+      if (!res.ok && res.status !== 404) {
+        const text = await res.text();
+        throw new Error(`presence/end failed: ${res.status} ${text}`);
+      }
+
+      presenceEndedRef.current = true;
+      presenceSessionIdRef.current = null;
+      console.log('[Presence] ended');
+    } catch (e) {
+      console.warn('[Presence] end error:', e);
+      crashlytics().recordError(e as Error);
+    }
+  }, [authFetch, roomId]);
+
+    // トークン更新
+  const fetchNewTokenAndRenew = useCallback(async () => {
+    try {
+      const res = await authFetch(`https://api.tsuuwa.com/rooms/${roomId}/token`);
+      if (!res.ok) throw new Error('renew token fail');
+      const data = await res.json();
+      const expireMs =
+        data.expireAt
+          ? new Date(data.expireAt).getTime()
+          : Date.now() + ((data.expireSeconds ?? data.expireAtSeconds ?? 3600) * 1000);
+      tokenExpireAtRef.current = expireMs;
+      setAgoraToken(data.token);
+      if (engineRef.current) {
+        engineRef.current.renewToken(data.token);
+      }
+    } catch (error) {
+      console.error('Error renewing token:', error);
+      crashlytics().recordError(error as Error);
+    }
+  }, [roomId, authFetch]);
+
+  useEffect(() => {
+    startPresence();
+  }, [startPresence]);
+
+  // ↓ 変更: useRef<RtcEngine | null> ではなく IRtcEngine
+  const engineRef = useRef<IRtcEngine | null>(null);
+  const joinedRef = useRef(false);
+
+  // マイクのパーミッションをリクエスト
+  const requestMicPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  };
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const tryResolveAccountByUid = useCallback((uid: number | string): string | null => {
+    const uidStr = String(uid);
+    const mapped = uidAccountMapRef.current[uidStr];
+    if (mapped) return mapped;
+
+    if (!engineRef.current) return null;
+    const uidNum = Number(uidStr);
+    if (!Number.isFinite(uidNum)) return null;
+
+    try {
+      const info = engineRef.current.getUserInfoByUid(uidNum);
+      const account = info?.userAccount?.trim?.();
+      if (account) {
+        uidAccountMapRef.current[uidStr] = account;
+        return account;
+      }
+    } catch {}
+    return null;
+  }, []);
+
+  // Agora 初期化 (RTCの方)
+  const initAgora = useCallback(async () => {
+    if (engineRef.current || !AGORA_APP_ID) return;
+
+    const ok = await requestMicPermission();
+    if (!ok) {
+      setTokenError('マイクの使用許可が必要です');
+      return;
+    }
+
+    // エンジン作成
+    const engine = createAgoraRtcEngine();
+    engine.initialize({
+      appId: AGORA_APP_ID,
+      channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+    });
+    engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+    engine.enableAudio();
+    engine.setDefaultAudioRouteToSpeakerphone(true);
+    // 音声設定を追加
+    engine.adjustRecordingSignalVolume(100);
+    engine.adjustPlaybackSignalVolume(100);
+    engine.enableAudioVolumeIndication(500, 3, true); // 500msごとに音量インジケーションを有効化
+
+    // イベント登録
+    engine.registerEventHandler({
+      onJoinChannelSuccess: async (_connection, uid) => {
+        console.log('[Agora] join success uid=', uid);
+        setAgoraUid(uid);
+        joinedRef.current = true;
+
+        const accountOrUid = uidAccountMapRef.current[String(uid)] ?? String(uid);
+        const localId = localUserIdRef.current ?? String(uid);
+
+        // ★追加: ローカルはAuthのphotoURLを即反映しておく
+        const authUser = auth.currentUser;
+
+        const displayName = await getDisplayName(String(accountOrUid)); // ここ怪しいかも
+        if (!displayName) return;
+
+        setParticipants(prev => {
+          const local =
+            prev.find(p => p.id === 'local') ?? prev.find(p => p.id === localId);
+          const me = {
+            id: localId,
+            name: local?.name ?? (authUser?.displayName ?? `User ${localId}`),
+            isMuted: local?.isMuted ?? false,
+            avatarUrl: local?.avatarUrl ?? (authUser?.photoURL ?? undefined),
+            speakingVolume: 0,
+            profileField: local?.profileField ?? undefined,
+          };
+          const others = prev.filter(p => p.id !== 'local' && p.id !== String(uid));
+          return [me, ...others];
+        });
+
+        // account をキーにして名前を更新
+        setParticipants(prev =>
+          prev.map(p => (p.id === accountOrUid ? { ...p, name: displayName } : p))
+        );
+
+        // ★補足: Firestore名＆画像も最終的に同期（photoURL/ avatarUrl を取りこぼさない）
+        getDisplayName(localId).catch(() => {});
+      },
+      onUserJoined: (_connection, remoteUid) => {
+        console.log('[Agora] remote joined', remoteUid);
+        const uid = String(remoteUid);
+        const initialId = uidAccountMapRef.current[String(uid)] ?? String(uid);
+        setParticipants(prev => {
+          if (prev.some(p => p.id === initialId)) return prev;
+          return [...prev, { id: initialId, name: `User ${uid}`, isMuted: false, avatarUrl: undefined }];
+        });
+
+        (async () => {
+          try {
+            await sleep(120);
+
+            let account = tryResolveAccountByUid(uid);
+            for (let i = 0; i < 5 && !account; i += 1) {
+              await sleep(180);
+              account = tryResolveAccountByUid(uid);
+            }
+
+            // account が取れたときだけ Firestore を引く
+            if (!account) return;
+
+            const displayName = await getDisplayName(account);
+            const avatarUrl = avatarCacheRef.current[account];
+
+            setParticipants(prev =>
+              prev.map(p => {
+                if (p.id === uid || p.id === account) {
+                  return {
+                    ...p,
+                    id: account,
+                    name: displayName ?? p.name,
+                    avatarUrl: avatarUrl ?? p.avatarUrl,
+                    profileField: p.profileField, // ここは変えない（Firestoreからの反映を優先）
+                  };
+                }
+                return p;
+              })
+            );
+          } catch (e) {
+            console.warn('[Agora] resolve account error', e);
+            crashlytics().recordError(e as Error);
+          }
+        })();
+      },
+      onUserInfoUpdated(uidMaybe, userInfoMaybe) {
+        const rawArgs = arguments as IArguments;
+        let uid = uidMaybe;
+        let userInfo = userInfoMaybe;
+
+        if (
+          uidMaybe &&
+          typeof uidMaybe === 'object' &&
+          uidMaybe !== null &&
+          typeof userInfoMaybe === 'number'
+        ) {
+          uid = userInfoMaybe;
+          userInfo = rawArgs[2];
+        }
+
+        console.log('[Agora] onUserInfoUpdated', uid, userInfo);
+        const account = userInfo?.userAccount as string;
+        const uidStr = String(uid);
+
+        if (account) {
+          uidAccountMapRef.current[uidStr] = account;
+
+          setParticipants(prev => {
+            if (prev.some(p => p.id === account)) {
+              return prev.filter(p => p.id !== uidStr);
+            }
+            return prev.map(p => (p.id === uidStr ? { ...p, id: account } : p));
+          });
+
+          // ★修正: 名前とアバター両方取得して反映
+          getDisplayName(account).then(() => {
+            const avatarUrl = avatarCacheRef.current[account];
+            const displayName = nameCacheRef.current[account];
+            const profileField = profileCacheRef.current[account];
+            if (displayName || avatarUrl || profileField) {
+              setParticipants(prev =>
+                prev.map(p =>
+                  p.id === account
+                    ? { ...p, name: displayName ?? p.name, avatarUrl: avatarUrl ?? p.avatarUrl, profileField: profileField ?? p.profileField }
+                    : p
+                )
+              );
+            }
+          }).catch(() => {});
+        } else {
+          const resolved = tryResolveAccountByUid(uidStr);
+          if (resolved) {
+           getDisplayName(uidStr).catch(() => {});
+          }
+        }
+      },
+      onUserOffline: (_connection, remoteUid) => {
+        console.log('[Agora] remote offline', remoteUid);
+        const uidKey = String(remoteUid);
+        const accountKey = uidAccountMapRef.current[uidKey];
+        setParticipants(prev => prev.filter(p => p.id !== uidKey && p.id !== accountKey));
+
+        setMutedParticipantIds(prev => {
+          const next = { ...prev };
+          delete next[uidKey];
+          if (accountKey) delete next[accountKey];
+          return next;
+        });
+        delete uidAccountMapRef.current[uidKey];
+      },
+      onUserMuteAudio: (_connection, remoteUid, muted) => {
+        console.log('[Agora] remote mute change', remoteUid, muted);
+        const uidKey = String(remoteUid);
+        const accountKey = uidAccountMapRef.current[uidKey];
+        setParticipants(prev =>
+          prev.map(p =>
+            p.id === uidKey || p.id === accountKey ? { ...p, isMuted: !!muted } : p
+          )
+        );
+      },
+      onAudioVolumeIndication: (_connection, speakers) => {
+        const localId = localUserIdRef.current ?? (agoraUid != null ? String(agoraUid) : 'local');
+        setParticipants(prev =>
+          prev.map(p => {
+            const hit = speakers.find(s => {
+              if (s.uid === 0) return p.id === localId;
+              const mapped = uidAccountMapRef.current[String(s.uid)] ?? String(s.uid);
+              return p.id === mapped;
+            });
+            return { ...p, speakingVolume: hit ? hit.volume : 0 };
+          })
+        );
+      },
+      onTokenPrivilegeWillExpire: () => {
+        console.log('[Agora] token will expire -> renew');
+        fetchNewTokenAndRenew();
+      },
+      onLeaveChannel: () => {
+        console.log('[Agora] left channel');
+        joinedRef.current = false;
+      },
+      onError: (error, message) => {
+        console.log('[Agora] error', error, message);
+        setTokenError(`Agora error ${error}: ${message}`);
+      }
+    });
+
+    engineRef.current = engine;
+  }, [getDisplayName, auth, agoraUid, fetchNewTokenAndRenew, tryResolveAccountByUid]);
+
+  useEffect(() => {
+    console.log('[Reaction] Start listening');
+
+    const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
+    const q = query(reactionsRef, orderBy('createdAt', 'desc'), limit(1));
+    type change = {
+      type: 'added' | 'modified' | 'removed';
+      doc: {
+        data: () => { emoji: string; senderId: string | number; senderName: string; createdAt: { toMillis: () => number } | null };
+      };
+    }
+    // 最新のリアクションを監視
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot?.docChanges().forEach((change: change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            // サーバー時刻がない場合(ローカル書き込み直後)は現在時刻扱い
+            const createdAt = data.createdAt?.toMillis?.() ?? Date.now();
+            
+            // 10秒以内の新しいリアクションだけ反応する（過去ログ無視）
+            if (Date.now() - createdAt < 10000) {
+               console.log('[Reaction Received]', data.emoji, 'from', data.senderName);
+               // ★修正: senderId も渡すようにする（data.senderId は addDoc で入れてるはず）
+               // senderId が数値の場合もあるので String() で変換しておく
+               ShowReaction(data.emoji, String(data.senderId));
+            }
+          }
+        });
+      });
+
+    return () => unsubscribe();
+  }, [roomId, db]);
+
+  // ★実装: リアクションを表示して、3秒後に消す
+  const ShowReaction = (emoji: string, senderId: string) => {
+    // Stateを更新して表示させる
+    setActiveReactions(prev => ({
+      ...prev,
+      [senderId]: emoji
+    }));
+
+    // 3秒後に消すタイマー
+    setTimeout(() => {
+      setActiveReactions(prev => {
+        const next = { ...prev };
+        delete next[senderId]; // キーを削除して非表示に
+        return next;
+      });
+    }, 3000);
+  }
+
+
+
+  // トークン取得（多重呼び出し防止 & 安定した関数参照にする）
+  const fetchToken = useCallback(async (opts?: { force?: boolean }) => {
+    if (joinedRef.current && !opts?.force) {
+      console.log('[Agora] already joined -> skip fetchToken');
+      return;
+    }
+    if (tokenLoadingRef.current && !opts?.force) {
+      console.log('[Agora] token fetch in-flight -> skip');
+      return;
+    }
+    tokenLoadingRef.current = true;
+    setTokenLoading(true);
+    setTokenError(null);
+    try {
+      console.log('[Agora] fetch token...');
+      const currentUser = (await waitForAuthUser()) as { uid: string };
+      const userAccountParam = encodeURIComponent(currentUser.uid);
+      const tokenUrl = `https://api.tsuuwa.com/rooms/${roomId}/token?userAccount=${userAccountParam}`;
+      const res = await authFetch(tokenUrl);
+      if (!res.ok) throw new Error(`Failed token: ${res.status}`);
+      const data = await res.json();
+
+      const rawUid = data.uid;
+      let nextUid: number | null = null;
+      let nextAccount: string | null = null;
+
+      if (typeof rawUid === 'number') {
+        nextUid = rawUid;
+      } else if (typeof rawUid === 'string') {
+        const trimmed = rawUid.trim();
+        if (trimmed.length > 0) {
+          nextAccount = trimmed;
+        }
+      }
+
+      // サーバーがuidを返さなくても、手元のFirebase UIDをuserAccountとして使う
+      if (!nextAccount && currentUser?.uid) {
+        nextAccount = currentUser.uid;
+      }
+
+      let effectiveUid: number | null = nextUid;
+      let effectiveAccount: string | null = nextAccount;
+
+      setAgoraUid(nextUid);
+      setAgoraUserAccount(nextAccount);
+      agoraUserAccountRef.current = nextAccount;
+      localUserIdRef.current =
+        nextAccount ?? (nextUid != null ? String(nextUid) : 'local');
+
+      const options: ChannelMediaOptions = {
+        clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+      };
+
+      const channelId =
+        typeof roomId === 'string' ? roomId.trim() : String(roomId);
+      if (!channelId) {
+        setTokenError('channelId が空っぽだと join できないよ');
+        return;
+      }
+      console.log('[Agora] join params', {
+        channelId,
+        tokenSlice: data.token.slice(0, 12),
+        hasAccount: !!nextAccount,
+        nextUid,
+      });
+
+      await initAgora();
+      if (engineRef.current && !joinedRef.current) {
+        let joinCode = 0;
+
+        if (nextAccount && AGORA_APP_ID) {
+          const registerCode = engineRef.current.registerLocalUserAccount(
+            AGORA_APP_ID,
+            nextAccount,
+          );
+          console.log('[Agora] registerLocalUserAccount ->', registerCode);
+          if (registerCode !== 0) {
+            throw new Error(`registerLocalUserAccount failed (${registerCode})`);
+          }
+          joinCode = engineRef.current.joinChannelWithUserAccount(
+            data.token,
+            channelId,
+            nextAccount,
+            options,
+          );
+          console.log('[Agora] joinChannelWithUserAccount ->', joinCode);
+
+          if (joinCode === -2 && /^\d+$/.test(nextAccount)) {
+            // ありえないけど数値っぽい文字列ならフォールバック
+            console.log('[Agora] joinChannelWithUserAccount -2 -> fallback to numeric uid');
+            effectiveAccount = null;
+            effectiveUid = Number.parseInt(nextAccount, 10);
+            joinCode = engineRef.current.joinChannel(
+              data.token,
+              channelId,
+              effectiveUid,
+              options,
+            );
+          }
+        } else {
+          const uidForJoin = nextUid ?? 0;
+          effectiveUid = uidForJoin;
+          joinCode = engineRef.current.joinChannel(
+            data.token,
+            channelId,
+            uidForJoin,
+            options,
+          );
+          console.log('[Agora] joinChannel (uid) ->', joinCode);
+        }
+        if (joinCode !== 0) {
+          console.log('[Agora] joinChannel failed', joinCode);
+          setTokenError(`join に失敗 (${joinCode})`);
+          return;
+        }
+
+        setAgoraUid(effectiveUid);
+        setAgoraUserAccount(effectiveAccount);
+        agoraUserAccountRef.current = effectiveAccount;
+        localUserIdRef.current =
+          effectiveAccount ?? (effectiveUid != null ? String(effectiveUid) : 'local');
+      }
+    } catch (e) {
+      console.log('[Agora] token error', e);
+      console.log('[Agora] エラー詳細:', JSON.stringify(e));
+      setTokenError( 'トークン取得失敗');
+      setAgoraToken(null);
+      crashlytics().recordError(e as Error);
+    } finally {
+      tokenLoadingRef.current = false;
+      setTokenLoading(false);
+    }
+  }, [roomId, initAgora, authFetch, waitForAuthUser]);
+
+  // 初回レンダリング時にトークン取得 & join
+  useEffect(() => {
+    fetchToken();
+  }, [roomId, fetchToken]);
+
+  // トークンの有効期限が近づいたら更新
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (tokenExpireAtRef.current) {
+        const remain = tokenExpireAtRef.current - Date.now();
+        if (remain < 60_000) {
+          fetchToken();
+        }
+      }
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [ fetchToken, auth.currentUser]);
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      // 追加: 画面破棄時も退出ログ送信
+      void endPresence();
+
+      if (engineRef.current) {
+        try {
+          if (joinedRef.current) {
+            engineRef.current.leaveChannel();
+          }
+          engineRef.current.release();
+        } catch {}
+        engineRef.current = null;
+      }
+    };
+  }, [endPresence]);
+
+  // ミュート切り替え
+  const handleMuteToggle = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    if (engineRef.current) {
+      engineRef.current.muteLocalAudioStream(next);
+      const localId = localUserIdRef.current ?? (agoraUid != null ? String(agoraUid) : 'local');
+      setParticipants(prev =>
+        prev.map(p => (p.id === localId ? { ...p, isMuted: next } : p))
+      );
+    }
+  };
+
+  // participant.id(文字列) から Agora の numeric uid を解決
+  const resolveRemoteUid = useCallback((participantId: string): number | null => {
+    const asNum = Number(participantId);
+    if (Number.isFinite(asNum) && asNum > 0) return asNum;
+
+    // userAccount で participants を作ってる場合は uidAccountMapRef から逆引き
+    for (const [uid, account] of Object.entries(uidAccountMapRef.current)) {
+      if (account === participantId) return Number(uid);
+    }
+    return null;
+  }, []);
+
+  const toggleParticipantMute = useCallback((participantId: string) => {
+    if (!engineRef.current) return;
+
+    const remoteUid = resolveRemoteUid(participantId);
+    if (!remoteUid) {
+      console.warn('[Mute] remote uid not found:', participantId);
+      return;
+    }
+
+    const nextMuted = !mutedParticipantIds[participantId];
+    const rc = engineRef.current.muteRemoteAudioStream(remoteUid, nextMuted);
+    if (rc !== 0) {
+      console.warn('[Mute] failed:', participantId, 'code=', rc);
+      return;
+    }
+
+    setMutedParticipantIds(prev => ({ ...prev, [participantId]: nextMuted }));
+  }, [mutedParticipantIds, resolveRemoteUid]);
+
+  // ユーザーIDを変更して再参加するヘルパー
+  const switchAgoraId = async (newId: string | number) => {
+    if (!engineRef.current) return;
+    // 既に入ってたら退出
+    if (joinedRef.current) {
+      try { engineRef.current.leaveChannel(); } catch {}
+      joinedRef.current = false;
+    }
+
+    // numeric uid で参加する場合
+    if (typeof newId === 'number') {
+      if (!agoraToken) {
+        console.error('Agora token is null. Cannot join channel.');
+        return;
+      }
+      const joinCode = engineRef.current.joinChannel(agoraToken, String(roomId), newId, {
+        clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+      });
+      if (joinCode === 0) {
+        localUserIdRef.current = String(newId);
+        setAgoraUid(newId);
+        joinedRef.current = true;
+      }
+      return;
+    }
+
+    // userAccount（文字列）で参加する場合
+    const account = String(newId);
+    const reg = engineRef.current.registerLocalUserAccount(AGORA_APP_ID!, account);
+    if (reg !== 0) {
+      console.warn('registerLocalUserAccount failed', reg);
+      return;
+    }
+    if (!agoraToken) {
+      console.error('Agora token is null. Cannot join channel.');
+      return;
+    }
+    const joinCode = engineRef.current.joinChannelWithUserAccount(agoraToken, String(roomId), account, {
+      clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+      channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+    });
+    if (joinCode === 0) {
+      localUserIdRef.current = account;
+      setAgoraUserAccount(account);
+      joinedRef.current = true;
+    }
+  };
+
+  // 退出 & クリーンアップ
+  const cleanupAndLeave = () => {
+    if (engineRef.current) {
+      try {
+        if (joinedRef.current) {
+          engineRef.current.leaveChannel();
+        }
+        engineRef.current.release();
+      } catch {}
+      engineRef.current = null;
+    }
+    console.log('Left channel and cleaned up');
+  };
+
+  // 退出ボタン押下時
+  const handleLeaveRoom = async () => {
+    await endPresence();
+    cleanupAndLeave();
+    onClose();
+    navigation.goBack();
+
+    if (participants.length == 1) {
+      authFetch(`https://api.tsuuwa.com/rooms/${roomId}`, {
+        method: 'DELETE',
+      }).then(res => {
+        if (res.ok) {
+          console.log('Room deleted successfully');
+        } else {
+          console.warn('Failed to delete room:', res.status);
+        }
+      }).catch(err => {
+        console.error('Error deleting room:', err);
+      });
+    }
+    setParticipants([]);
+  };
+
+  const openProfile = useCallback((participantId: string) => {
+    const target = participants.find((p) => p.id === participantId);
+    if (!target) return;
+    setSelectedParticipant(target);
+    setIsOpenProfileModal(true);
+  }, [participants]);
+
+  const closeProfile = useCallback(() => {
+    setIsOpenProfileModal(false);
+    setSelectedParticipant(null);
+  }, []);
+
+  return (
+    <Box flex={1} bg={bgColor} safeArea>
+      {/* 本文 */}
+      <Box bg={headerBg} px={4} py={3} shadow={2}>
+        <HStack justifyContent="space-between" alignItems="center">
+          <Text fontSize="xl" fontWeight="bold">
+            {name || `Room ${roomId}`}
+          </Text>
+          <HStack space={2} alignItems="center">
+            <Badge bg="primary.500" _text={{ color: 'white' }} rounded="full" >
+              <Text fontSize="sm">参加者 {participants.length} 人</Text>
+            </Badge>
+          </HStack>
+        </HStack>
+        {tokenLoading && <Text fontSize="xs" color="gray.500">トークン取得中...</Text>}
+        {tokenError && <Text fontSize="xs" color="red.500">{tokenError}</Text>}
+      </Box>
+
+      <Box flex={1} p={4}>
+        {/* 参加者一覧 */}
+          <FlatList
+            data={participants}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item: participant, index }) => {
+              const isMe = participant.id === localUserIdRef.current;
+              
+              // ★デバッグ: 各参加者の avatarUrl を確認
+              //console.log('[Avatar Debug]', participant.id, 'isMe:', isMe, 'url:', participant.avatarUrl?.slice(0, 50));
+
+              return (
+                <Box
+                  flex={1}
+                  bg={(participant.speakingVolume ?? 0) > 50 ? 'blue.600' : cardBg || 'transparent'}
+                  borderWidth={(participant.speakingVolume ?? 0) > 50 ? 2 : 0}
+                  borderColor="blue.400"
+                  rounded="xl"
+                  shadow={3}
+                  overflow="hidden"
+                  mb={4}
+                  mr={index % 2 === 0 ? 2 : 0}
+                  ml={index % 2 === 1 ? 2 : 0}
+                  position="relative"
+                >
+                  {/* ★追加: リアクション表示（カード右上にオーバーレイ） */}
+                  {activeReactions[participant.id] && (
+                    <Box
+                      position="absolute"
+                      bottom={12}
+                      right={0}
+                      zIndex={30}
+                      bg="black:alpha.40"
+                      rounded="full"
+                      px={2}
+                      py={1}
+                    >
+                      <Text fontSize="2xl">{activeReactions[participant.id]}</Text>
+                    </Box>
+                  )}
+                  <Box bg="black">
+                    <Center flex={1} bg="gray.600" py={8}>
+                      <Avatar
+                        size="xl"
+                        bg="gray.300"
+                        source={
+                          participant.avatarUrl
+                            ? { uri: `${participant.avatarUrl}?t=${sessionTimestamp.current}` }
+                            : undefined
+                        }
+                        borderWidth={(participant.speakingVolume ?? 0) > 50 ? 2 : 0}
+                        borderColor="blue.400"
+                      >
+                        {participant.name?.[0] ?? '?'}
+                      </Avatar>
+                    </Center>
+                  </Box>
+
+                  {/* ★条件分岐: 自分じゃないときだけメニュー表示 */}
+                  {!isMe && (
+                    <Menu
+                      trigger={(triggerProps) => (
+                        <IconButton
+                          {...triggerProps}
+                          position="absolute"
+                          top={2}
+                          right={2}
+                          zIndex={20}
+                          size="sm"
+                          bg="white"
+                          _pressed={{ bg: 'gray.200' }}
+                          rounded="full"
+                          icon={
+                            <Icon
+                              as={Ionicons}
+                              name="ellipsis-horizontal"
+                              size="sm"
+                              color="black"
+                            />
+                          }
+                        />
+                      )}
+                      placement="left top"
+                    >
+                      <Menu.Item onPress={() => openProfile(participant.id)}>
+                        プロフィールを見る
+                      </Menu.Item>
+                      <Menu.Item onPress={() => { 
+                        console.log('通報する', participant.id); 
+                        setIsOpenReportDialog(true); 
+                        setReportedUserId(participant.id); 
+                      }}>
+                        通報する
+                      </Menu.Item>
+                      <Menu.Item onPress={() => {
+                        console.log('ミュートする', participant.id);
+                        toggleParticipantMute(participant.id);
+                      }}>
+                        {mutedParticipantIds[participant.id] ? 'ミュート解除' : 'ミュートする'}
+                      </Menu.Item>
+                    </Menu>
+                  )}
+
+                  {/* ミュートバッジとか下の名前エリア */}
+                  <Box p={3}>
+                    <HStack alignItems="center" justifyContent="space-between">
+                      <Text numberOfLines={1} fontWeight="semibold">
+                        {participant.name ?? `User ${participant.id}`}
+                      </Text>
+                      {participant.isMuted && (
+                        <Icon as={Ionicons} name="mic-off" size="sm" color="red.500" />
+                      )}
+                    </HStack>
+                  </Box>
+                </Box>
+              );
+            }}
+          />
+      </Box>
+
+      {/* フッター操作列 */}
+      <VStack>
+        {/* BGMコーナー（ミュート/退出の上） */}
+        <Box bg={headerBg} px={4} py={3} borderTopWidth={1} borderColor="coolGray.200">
+          <VStack space={2}>
+            <HStack alignItems="center" space={3} justifyContent="space-between">
+              <HStack space={3} alignItems="center" flex={1}>
+                <Icon as={Ionicons} name="musical-notes" size="sm" color="coolGray.500" />
+                <Select
+                  minW="56"
+                  selectedValue={selectedBgm}
+                  onValueChange={onChangeBgm}
+                  accessibilityLabel="BGM"
+                  placeholder="BGMを選択"
+                  _selectedItem={{ endIcon: <CheckIcon size="5" /> }}
+                >
+                  <Select.Item label="なし" value="none" />
+                  <Select.Item label="焚き火 (bonfire)" value="bonfire" />
+                  <Select.Item label="ブラウンノイズ" value="brownnoise" />
+                </Select>
+              </HStack>
+              <HStack space={2} alignItems="center">
+                <IconButton
+                  size="sm"
+                  rounded="full"
+                  bg="primary.500"
+                  _pressed={{ bg: 'primary.600' }}
+                  icon={<Ionicons name={isBgmPlaying ? 'pause' : 'play'} size={18} color="white" />}
+                  onPress={toggleBgm}
+                  isDisabled={selectedBgm === 'none'}
+                />
+                <IconButton
+                  size="sm"
+                  rounded="full"
+                  bg="coolGray.200"
+                  _pressed={{ bg: 'coolGray.300' }}
+                  icon={<Ionicons name="stop" size={18} color="black" />}
+                  onPress={async () => {
+                    if (bgmSound) {
+                      try { await bgmSound.stopAsync(); } catch {}
+                    }
+                    setIsBgmPlaying(false);
+                  }}
+                  isDisabled={selectedBgm === 'none'}
+                />
+              </HStack>
+            </HStack>
+            <HStack alignItems="center" space={2}>
+              <Icon as={Ionicons} name="volume-low" size="sm" color="coolGray.500" />
+              <Slider flex={1} value={bgmVolume} minValue={0} maxValue={1} step={0.05} onChange={setBgmVolume}>
+                <Slider.Track>
+                  <Slider.FilledTrack />
+                </Slider.Track>
+                <Slider.Thumb />
+              </Slider>
+              <Icon as={Ionicons} name="volume-high" size="sm" color="coolGray.500" />
+            </HStack>
+          </VStack>
+        </Box>
+        <Box bg={headerBg} p={4} shadow={2} position="relative">
+          <HStack justifyContent="center" space={6}>
+            {/* ミュート/退出ボタン */}
+            <VStack alignItems="center">
+              <IconButton
+                size="lg"
+                bg={isMuted ? 'red.500' : 'green.500'}
+                _pressed={{ bg: isMuted ? 'red.600' : 'green.600' }}
+                rounded="full"
+                icon={<Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="white" />}
+                onPress={handleMuteToggle}
+              />
+                <Text fontSize="xs" mt={1}>
+                  {isMuted ? 'ミュート解除' : 'ミュート'}
+                </Text>
+            </VStack>
+
+            <VStack alignItems="center">
+              <IconButton
+                size="lg"
+                bg="red.500"
+                _pressed={{ bg: 'red.600' }}
+                rounded="full"
+                icon={<Ionicons name="call" size={24} color="white" />}
+                onPress={onOpen}
+              />
+                <Text fontSize="xs" mt={1}>
+                  退出
+                </Text>
+            </VStack>
+          </HStack>
+
+          {/* 透明ガラステイスト FAB */}
+          <Fab
+            position="absolute"
+            bottom={REACTION_FAB_BOTTOM}
+              right={REACTION_FAB_RIGHT}
+            bg={reactionFabBg}
+            borderWidth={1}
+            borderColor={reactionFabBorder}
+            _pressed={{ bg: reactionFabPressed }}
+            shadow={4}
+            icon={<Ionicons name="happy-outline" size={24} color={reactionFabIconColor} />}
+            onPress={() => setShowReaction(v => !v)}
+          />
+        </Box>
+      </VStack>
+
+      {/* リアクショントレー: フッターの外に絶対配置して layout 干渉させない */}
+      {showReaction && (
+        <>
+          {/* 全画面オーバーレイ (閉じる用) */}
+          <Pressable
+            position="absolute"
+            top={0} left={0} right={0} bottom={0}
+            onPress={() => setShowReaction(false)}
+            bg="transparent"
+            zIndex={40}
+          />
+          {/* ← PresenceTransition 自体が stretch しがちなので、絶対配置は外側の Box に持たせる */}
+          <Box
+            position="absolute"
+            right={REACTION_FAB_RIGHT}
+            bottom={REACTION_FAB_BOTTOM + FAB_SIZE + 26}
+            zIndex={50}
+            pointerEvents="box-none"
+            alignItems="flex-end"
+          >
+            <PresenceTransition
+              visible={showReaction}
+              initial={{ opacity: 0, translateY: 8 }}
+              animate={{
+                opacity: 1,
+                translateY: 0,
+                transition: { duration: 160 },
+              }}
+            >
+              <Box
+                alignSelf="flex-end"   // これで横幅が content に収まる
+                px={6}
+                py={3}
+                w="auto"
+                flexShrink={1}
+                //bg={useColorModeValue('rgba(30,30,30,0.55)', 'rgba(250,250,250,0.18)')}
+                borderWidth={1}
+                borderColor={reactionTrayBorder}
+                rounded="full"
+                shadow={0}              // 影で巨大化見えするの防止
+                pointerEvents="auto"
+              >
+                <HStack space={3} alignItems="center">
+                  {reactionList.map((emoji) => (
+                    <Pressable
+                      key={emoji}
+                      w={REACTION_ITEM_SIZE}
+                      h={REACTION_ITEM_SIZE}
+                      alignItems="center"
+                      justifyContent="center"
+                      rounded="full"
+                      _pressed={{ bg: reactionItemPressed }}
+                      hitSlop={8}
+                      onPress={async () => {
+                        console.log('Reaction:', emoji);
+                        setShowReaction(false);
+
+                        try {
+                          const firebaseUid = auth.currentUser?.uid;
+                          if (!firebaseUid) {
+                            console.warn('[Reaction] not authenticated');
+                            return;
+                          }
+
+                          const myName =
+                            participants.find(p => p.id === localUserIdRef.current)?.name ||
+                            auth.currentUser?.displayName ||
+                            'Unknown';
+
+                          const reactionsRef = collection(db, 'rooms', String(roomId), 'reactions');
+                          await addDoc(reactionsRef, {
+                            emoji,
+                            senderId: firebaseUid,
+                            senderName: myName,
+                            createdAt: serverTimestamp(),
+                          });
+
+                          console.log('[Reaction] Sent:', emoji);
+                        } catch (e) {
+                          console.warn('[Reaction] Send error:', e);
+                        }
+                      }}
+                    >
+                      <Text fontSize={REACTION_EMOJI_SIZE} lineHeight={REACTION_EMOJI_SIZE}>
+                        {emoji}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </HStack>
+              </Box>
+            </PresenceTransition>
+          </Box>
+        </>
+      )}
+
+      {/* 退出ダイアログ */}
+      <AlertDialog leastDestructiveRef={cancelRef} isOpen={isOpen} onClose={onClose}>
+        <AlertDialog.Content>
+          {/* CloseButton 差し替え: NativeBase のやつが fill="" 投げて警告出るので自作 */}
+          <IconButton
+            position="absolute"
+            top={2}
+            right={2}
+            variant="ghost"
+            onPress={onClose}
+            _pressed={{ bg: 'transparent', opacity: 0.6 }}
+            _icon={{ as: Ionicons, name: 'close', color: 'coolGray.400', size: '5' }}
+            hitSlop={8}
+          />
+          <AlertDialog.Header>通話を終了</AlertDialog.Header>
+          <AlertDialog.Body>
+            本当に通話を終了しますか？
+          </AlertDialog.Body>
+          <AlertDialog.Footer>
+            <Button.Group space={2}>
+              <Button variant="unstyled" colorScheme="coolGray" onPress={onClose} ref={cancelRef}>
+                キャンセル
+              </Button>
+              <Button bg="red.500" _pressed={{ bg: 'red.600' }} onPress={handleLeaveRoom}>
+                終了
+              </Button>
+            </Button.Group>
+          </AlertDialog.Footer>
+        </AlertDialog.Content>
+      </AlertDialog>
+      {/* 通報ダイアログ */}
+      {isOpenReportDialog && (
+        <ReportUserDialog
+          isOpen={isOpenReportDialog}
+          onClose={() => setIsOpenReportDialog(false)}
+          reportedUserId={reportedUserId ?? ''} // ここに通報対象のユーザーIDを渡す
+        />
+      )}
+      {/* プロフィールモーダル */}
+      {selectedParticipant && (
+        <Profmodal
+          isOpen={isOpenProfileModal}
+          onClose={closeProfile}
+          participant={selectedParticipant}
+        />
+      )}
+    </Box>
+  );
+  
+}

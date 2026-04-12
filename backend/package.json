@@ -1,0 +1,23 @@
+{
+  "name": "tsuuwa-backend",
+  "version": "1.0.0",
+  "description": "Backend for Tsuuwa application",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.14.0",
+    "agora-access-token": "^2.0.4",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.6.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "prisma": "^6.14.0"
+  }
+}

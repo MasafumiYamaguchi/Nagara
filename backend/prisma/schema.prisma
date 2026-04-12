@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model room {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String   @default("")
+  nop         Int
+  password    String   @default("")
+  creatorUid  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accessLogs  accessLog[]
+  presences   roomPresence[]
+}
+
+model accessLog {
+  id            BigInt   @id @default(autoincrement())
+  uid           String?
+  event         String
+  roomId        Int?
+  method        String?
+  path          String?
+  ip            String?
+  forwardedFor  String?
+  sourcePort    Int?
+  forwardedPort Int?
+  userAgent     String?
+  details       Json?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  room          room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([uid, createdAt])
+  @@index([roomId, createdAt])
+  @@index([event, createdAt])
+}
+
+model roomPresence {
+  id              BigInt   @id @default(autoincrement())
+  sessionId       String   @unique
+  uid             String
+  roomId          Int? 
+  joinedAt        DateTime @default(now()) @db.Timestamptz(3)
+  leftAt          DateTime? @db.Timestamptz(3)
+  joinIp          String?
+  joinSourcePort  Int?
+  leaveIp         String?
+  leaveSourcePort Int?
+  userAgent       String?
+
+  room            room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, joinedAt])
+  @@index([uid, joinedAt])
+}

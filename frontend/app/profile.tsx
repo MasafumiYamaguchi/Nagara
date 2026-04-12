@@ -1,0 +1,358 @@
+import React from "react";
+import {
+  Box,
+  VStack,
+  HStack,
+  Avatar,
+  Text,
+  Heading,
+  Divider,
+  Pressable,
+  ScrollView,
+  Center,
+  useColorMode,
+  Button,
+} from "native-base";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "../src/store/authStore";
+import EditProfile from "./components/editprofile";
+
+import { deleteUserData } from "../src/services/authService";
+  
+// Bottom Tab用の型定義をインポート
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Alert } from "react-native";
+type Props = BottomTabScreenProps<TabParamList, 'プロフィール'>;
+
+type TabParamList = {
+  ホーム: undefined;
+  プロフィール: undefined;
+  設定: undefined;
+};
+
+const Profile = ({ navigation }: Props) => {
+  const { user } = useAuthStore();
+  const temporaryDisplayName =
+    user?.displayName ||
+    (user?.email ? user.email.split('@')[0] : null) ||
+    (user?.uid ? `user_${user.uid.slice(0, 6)}` : null) ||
+    "ユーザー";
+  const { colorMode: nativeBaseColorMode } = useColorMode();
+  const sessionTimestamp = React.useRef(Date.now());
+  const [isOpenEditProfile, setIsOpenEditProfile] = React.useState(false);
+
+  // ログアウト処理
+  /*
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.show({
+        title: "ログアウト完了",
+        description: "ログアウトしました"
+      });
+    } catch (error) {
+      toast.show({
+        title: "エラー",
+        description: "ログアウトに失敗しました"
+      });
+    }
+  };
+  */
+
+  const handleWithdraw = () => {
+    Alert.alert(
+      "退会確認",
+      "本当に退会しますか？",
+      [
+        {
+          text: "キャンセル",
+          style: "cancel"
+        },
+        {
+          text: "退会する",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await withdraw();
+              console.log('User account deleted');
+            } catch (error) {
+              console.log('Account deletion error', error);
+              Alert.alert("エラー", "退会処理に失敗しました");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  function withdraw() {
+    return deleteUserData();
+  }
+
+  const ProfileMenuItem = ({ 
+    title, 
+    subtitle, 
+    onPress,
+    isDev 
+  }: { 
+    title: string; 
+    subtitle?: string; 
+    onPress?: () => void; 
+    isDev?: boolean;
+  }) => (
+    <Pressable onPress={onPress} disabled={isDev}>
+      {({ isPressed }) => (
+        <Box
+          bg={
+            isDev
+              ? (nativeBaseColorMode === "dark" ? "gray.900" : "gray.200")
+              : isPressed
+                ? (nativeBaseColorMode === "dark" ? "gray.700" : "gray.100")
+                : (nativeBaseColorMode === "dark" ? "gray.800" : "white")
+          }
+          opacity={isDev ? 0.6 : 1}
+          p="4"
+          borderRadius="md"
+          mb="2"
+          borderWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
+        >
+          <HStack space={3} alignItems="center">
+            <Box
+              bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.100"}
+              p="2"
+              borderRadius="full"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Ionicons
+                name="person"
+                size={20}
+                color={nativeBaseColorMode === "dark" ? "#E5E7EB" : "#4B5563"}
+              />
+            </Box>
+            <VStack flex={1}>
+              <HStack alignItems="center" space={2}>
+                <Text
+                  fontSize="md"
+                  fontWeight="medium"
+                  color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+                >
+                  {title}
+                </Text>
+                {isDev && (
+                  <Box
+                    bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.300"}
+                    px="2"
+                    py="0.5"
+                    borderRadius="full"
+                  >
+                    <Text
+                      fontSize="xs"
+                      color={nativeBaseColorMode === "dark" ? "gray.200" : "gray.700"}
+                    >
+                      開発中
+                    </Text>
+                  </Box>
+                )}
+              </HStack>
+              {subtitle && (
+                <Text
+                  fontSize="sm"
+                  color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.500"}
+                >
+                  {subtitle}
+                </Text>
+              )}
+            </VStack>
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={nativeBaseColorMode === "dark" ? "#4B5563" : "#CBD5E0"}
+            />
+          </HStack>
+        </Box>
+      )}
+    </Pressable>
+  );
+
+  return (
+    <ScrollView bg={nativeBaseColorMode === "dark" ? "gray.900" : "gray.50"} flex={1}>
+      <Box safeArea>
+        {/* プロフィールヘッダー */}
+        <Box
+          bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"}
+          p="6"
+          mb="4"
+          borderBottomWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
+        >
+          <Center>
+            <Avatar
+              size="xl"
+              source={{
+                uri: user?.photoURL
+                  ? `${user.photoURL}?t=${sessionTimestamp.current}`
+                  : undefined,
+              }}
+              mb="4"
+              bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
+            >
+              {temporaryDisplayName.charAt(0).toUpperCase()}
+            </Avatar>
+            <Heading
+              size="md"
+              mb="1"
+              color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.900"}
+            >
+              {temporaryDisplayName}
+            </Heading>
+            <Text
+              color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}
+              fontSize="sm"
+              mb="2"
+            >
+              {user?.email}
+            </Text>
+            {user?.emailVerified && (
+              <Box
+                bg={nativeBaseColorMode === "dark" ? "green.600" : "green.500"}
+                borderRadius="full"
+                px="3"
+                py="1"
+                alignSelf="center"
+              >
+                <Text color="white" fontWeight="semibold" bg="transparent">
+                  メール認証済み
+                </Text>
+              </Box>
+            )}
+          </Center>
+        </Box>
+
+        {/* アカウント情報セクション */}
+        <Box
+          bg={nativeBaseColorMode === "dark" ? "gray.800" : "white"}
+          mx="4"
+          borderRadius="md"
+          p="4"
+          mb="4"
+          borderWidth={1}
+          borderColor={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"}
+        >
+          <Heading
+            size="sm"
+            mb="3"
+            color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"}
+          >
+            アカウント情報
+          </Heading>
+          
+          <VStack space={3}>
+            <HStack justifyContent="space-between" alignItems="center">
+              <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
+                ユーザーID
+              </Text>
+              <Text
+                fontSize="sm"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.800"}
+                maxW="200"
+                numberOfLines={1}
+              >
+                {user?.uid}
+              </Text>
+            </HStack>
+            
+            <Divider bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"} />
+            
+            <HStack justifyContent="space-between" alignItems="center">
+              <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
+                登録日
+              </Text>
+              <Text
+                fontSize="sm"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.800"}
+              >
+                {user?.metadata?.creationTime 
+                  ? new Date(user.metadata.creationTime).toLocaleDateString('ja-JP')
+                  : "不明"
+                }
+              </Text>
+            </HStack>
+            
+            <Divider bg={nativeBaseColorMode === "dark" ? "gray.700" : "gray.200"} />
+            
+            <HStack justifyContent="space-between" alignItems="center">
+              <Text color={nativeBaseColorMode === "dark" ? "gray.400" : "gray.600"}>
+                最終ログイン
+              </Text>
+              <Text
+                fontSize="sm"
+                color={nativeBaseColorMode === "dark" ? "gray.100" : "gray.800"}
+              >
+                {user?.metadata?.lastSignInTime 
+                  ? new Date(user.metadata.lastSignInTime).toLocaleDateString('ja-JP')
+                  : "不明"
+                }
+              </Text>
+            </HStack>
+          </VStack>
+        </Box>
+
+        {/* 設定メニューセクション */}
+        <Box mx="4" mb="4">
+          <Heading
+            size="sm"
+            mb="3"
+            color={nativeBaseColorMode === "dark" ? "gray.300" : "gray.700"}
+            px="2"
+          >
+            詳細設定
+          </Heading>
+          
+          <ProfileMenuItem
+            title="プロフィール編集"
+            subtitle="プロフィール文を変更"
+            onPress={() => setIsOpenEditProfile(true)}
+          />
+          
+          <ProfileMenuItem
+            title="通知設定"
+            subtitle="プッシュ通知の管理"
+            onPress={() => console.log("通知設定")}
+            isDev={true}
+          />
+          
+          <ProfileMenuItem
+            title="プライバシー設定"
+            subtitle="データとプライバシー"
+            onPress={() => navigation.getParent()?.navigate("Privacy")}
+          />
+        
+        </Box>
+          {/* プロフィール編集モーダル */}
+          {isOpenEditProfile && (
+          <EditProfile
+            isOpen={isOpenEditProfile}
+            onClose={() => setIsOpenEditProfile(false)}
+            reportedUserId={user?.uid || ""}
+          />)}
+
+        {/* 退会 */}
+        <Box mx="4" mb="6">
+          <Button
+            colorScheme="red"
+            variant="outline"
+            onPress={handleWithdraw}
+            leftIcon={<Ionicons name="log-out-outline" size={16} color="#E53E3E" />}
+            size="lg"
+          >
+            退会する
+          </Button>
+        </Box>
+      </Box>
+    </ScrollView>
+  );
+};
+
+export default Profile;

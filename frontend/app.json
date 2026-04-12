@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "Nagara",
+    "slug": "nagara",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yamaguchimasafumi.tsuuwa",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {
+            "api.tsuuwa.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSIncludesSubdomains": true
+            }
+          }
+        },
+        "NSMicrophoneUsageDescription": "音声入力のためにマイクを使用します"
+      }
+    },
+    "android": {
+      "permissions": [
+        "RECORD_AUDIO",
+        "DETECT_SCREEN_CAPTURE"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "googleServicesFile": "./google-services.json",
+      "package": "com.yamaguchimasafumi.tsuuwa"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "tsuuwa",
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/dynamic-links",
+      "@react-native-google-signin/google-signin",
+      "@react-native-firebase/crashlytics",
+      "@react-native-firebase/perf",
+      [
+        "expo-build-properties",
+        { "ios": { "useFrameworks": "static" } }
+      ],
+      [
+        "expo-font",
+        { "fonts": ["./assets/fonts/Inter.ttf"] }
+      ],
+      [
+        "expo-apple-authentication"
+      ]
+    ]
+  }
+}

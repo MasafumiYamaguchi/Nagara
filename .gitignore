@@ -6,3 +6,12 @@ build/
 web-build/
 npm-debug.log
 .env
+
+backend
+
+# Secrets / local config (do not publish)
+backups/
+**/google-services.json
+**/GoogleService-Info.plist
+**/*.keystore
+**/*-build.log
