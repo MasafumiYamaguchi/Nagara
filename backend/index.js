@@ -14,9 +14,11 @@ const rateLimit = require('express-rate-limit');
 dotenv.config(); // ← 1回だけここで
 
 const app = express(); // ← appを先に定義
+// ipを正しく拾うための設定
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
+// ログディレクトリとアクセスログファイルの準備
 const logDir = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 const accessLogFile = fs.createWriteStream(path.join(logDir, 'access.log'), { flags: 'a' });
@@ -53,12 +55,14 @@ const firebaseApp = initializeApp({
 
 dotenv.config();
 
+// pgの束を作る
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 const prisma = new PrismaClient();
 
+// 起動時にDB接続確認
 (async () => {
   try {
     const { rows } = await pool.query('SELECT NOW() AS now');
@@ -105,6 +109,7 @@ const toIntOrNull = (v) => {
   return Number.isInteger(n) ? n : null;
 };
 
+// リクエスト相手のネットワーク情報を抽出するユーティリティ
 const getClientNetworkInfo = (req) => {
   const xff = req.headers['x-forwarded-for'];
   const xfp = req.headers['x-forwarded-port'];
@@ -232,6 +237,7 @@ app.get('/rooms/:roomId/token', authenticate, async (req, res) => {
       expireSeconds,
     });
 
+    // トークン発行イベントのログを残す
     await writeAccessLog(req, {
       uid: req.user.uid,
       event: 'RTC_TOKEN_ISSUED',
@@ -263,6 +269,7 @@ app.post('/rooms/:roomId/presence/start', authenticate, async (req, res) => {
     const net = getClientNetworkInfo(req);
     const sessionId = randomUUID();
 
+    // ルームプレゼンスに参加記録を作成
     const row = await prisma.roomPresence.create({
       data: {
         sessionId,
@@ -307,6 +314,7 @@ app.post('/rooms/:roomId/presence/end', authenticate, async (req, res) => {
 
     if (result.count === 0) return res.status(404).json({ error: 'Active session not found' });
 
+    // 退出イベントのログを残す
     await writeAccessLog(req, {
       uid: req.user.uid,
       event: 'ROOM_LEFT',
@@ -330,12 +338,6 @@ app.get('/rooms', authenticate, async (req, res) => {
         description: true,
         nop: true,
       },
-    });
-
-    await writeAccessLog(req, {
-      uid: req.user.uid,
-      event: 'ROOM_LIST_VIEWED',
-      details: { count: rooms.length },
     });
 
     res.json(rooms);
@@ -362,6 +364,7 @@ app.get('/rooms/:roomId', authenticate, async (req, res) => {
 
     if (!room) return res.status(404).json({ error: 'Room not found' });
 
+    // ルーム閲覧イベントのログを残す
     await writeAccessLog(req, {
       uid: req.user.uid,
       event: 'ROOM_VIEWED',
