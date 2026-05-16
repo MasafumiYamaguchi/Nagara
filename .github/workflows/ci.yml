@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - trivy-scan
-      # 検証用のブランチ名があればここに追加してもOK
-      # - security-test 
 
 jobs:
-  trivy-scan-and-sbom:
+  trivy-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
