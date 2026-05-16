@@ -3,22 +3,22 @@ name: Security Scan
 on:
   push:
     branches:
-      - trivy-scan
-  workflow_dispatch:
+      - trivy-test
 
 jobs:
-  trivy-scan:
+  trivy-scan-and-sbom:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # パッケージの依存関係を少しでも正確に拾うため、npm installだけ軽く回しておくのもアリ
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
       - name: Install root dependencies
-        run: npm ci --ignore-scripts 
+        run: npm ci --ignore-scripts # 余計なビルドスクリプト走らないように
 
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@master
