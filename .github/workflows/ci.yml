@@ -1,119 +1,43 @@
-name: Build and Test
+name: Security Scan
 
 on:
   push:
     branches:
-      - rc
+      - trivy-scan
+      # 検証用のブランチ名があればここに追加してもOK
+      # - security-test 
 
 jobs:
-  build-ios:
-    runs-on: macos-latest
-    env:
-      NPM_CONFIG_LEGACY_PEER_DEPS: true
-      DETOX_E2E: 'true'
+  trivy-scan-and-sbom:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '16.4'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
       - name: Install root dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts 
 
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: ./frontend
-
-      - name: Cache CocoaPods
-        uses: actions/cache@v3
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@master
         with:
-          path: |
-            frontend/ios/Pods
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: ${{ runner.os }}-pods-${{ hashFiles('frontend/ios/Podfile.lock') }}
+          scan-type: 'fs'
+          format: 'cyclonedx'
+          output: 'trivy-sbom.json'
 
-      - name: Cache Xcode DerivedData
-        uses: actions/cache@v3
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
         with:
-          path: frontend/ios/build
-          key: ${{ runner.os }}-derived-${{ hashFiles('frontend/ios/Tsuuwa.xcodeproj/project.pbxproj', 'frontend/package-lock.json') }}
+          name: sbom
+          path: trivy-sbom.json
 
-      - name: Prebuild native projects (Expo)
-        run: npm run prebuild
-        working-directory: ./frontend
-
-      - name: Install iOS pods
-        run: |
-          cd ios
-          pod install --deployment
-        working-directory: ./frontend
-
-      - name: Build E2E (Detox)
-        run: npm run test:e2e:ios:build
-        working-directory: ./frontend
-
-  e2e-ios:
-    runs-on: macos-latest
-    needs: build-ios
-    env:
-      NPM_CONFIG_LEGACY_PEER_DEPS: true
-      DETOX_E2E: 'true'
-      CI: 'true'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - uses: maxim-lobanov/setup-xcode@v1
+      - name: Run Trivy scanner (All severities)
+        uses: aquasecurity/trivy-action@master
         with:
-          xcode-version: '16.4'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
-      - name: Install applesimutils
-        run: |
-          brew tap wix/brew
-          brew install applesimutils
-
-      - name: Boot iOS Simulator
-        run: open -a Simulator
-
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: ./frontend
-
-      - name: Restore CocoaPods cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            frontend/ios/Pods
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: ${{ runner.os }}-pods-${{ hashFiles('frontend/ios/Podfile.lock') }}
-
-      - name: Restore Xcode DerivedData
-        uses: actions/cache@v3
-        with:
-          path: frontend/ios/build
-          key: ${{ runner.os }}-derived-${{ hashFiles('frontend/ios/Tsuuwa.xcodeproj/project.pbxproj', 'frontend/package-lock.json') }}
-
-      - name: Run E2E Tests (Detox with Metro and .e2e resolution)
-        run: npm run test:e2e:ios:ci:with-metro
-        working-directory: ./frontend
+          scan-type: 'fs'
+          format: 'table'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          exit-code: '0'
