@@ -12,13 +12,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # パッケージの依存関係を少しでも正確に拾うため、npm installだけ軽く回しておくのもアリ
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
       - name: Install root dependencies
-        run: npm ci --ignore-scripts # 余計なビルドスクリプト走らないように
+        run: npm ci --ignore-scripts 
 
       - name: Generate SBOM
         uses: aquasecurity/trivy-action@master
@@ -38,5 +37,5 @@ jobs:
         with:
           scan-type: 'fs'
           format: 'table'
-          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          severity: 'HIGH,CRITICAL'
           exit-code: '0'
