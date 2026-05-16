@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - trivy-scan
+  workflow_dispatch:
 
 jobs:
   trivy-scan:
